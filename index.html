@@ -144,6 +144,7 @@ const ctx    = canvas.getContext('2d');
 canvas.width = GW; canvas.height = GH;
 const wrapper = document.getElementById('wrapper');
 let CS = 1; // canvasScale
+let dirSwapped = false; // 切換方向鍵位置
 
 function resize() {
   CS = Math.min(window.innerWidth/GW, window.innerHeight/GH);
@@ -161,10 +162,18 @@ function layoutBtns(cw,ch) {
     el.style.cssText+=`;width:${bw}px;height:${bh}px;font-size:${fs};`+
       `left:${l!=null?l+'px':'auto'};right:${r!=null?r+'px':'auto'};bottom:${b}px;top:auto`;
   }
-  pos('tb-left',  null, mg+bw+sp, bt);
-  pos('tb-right', null, mg,       bt);
-  pos('tb-up',    mg+bw+sp,   null, bt+Math.round(38*CS));
-  pos('tb-down',  mg,         null, bt);
+  if(!dirSwapped){
+    pos('tb-left',  null, mg+bw+sp, bt);
+    pos('tb-right', null, mg,       bt);
+    pos('tb-up',    mg+bw+sp, null, bt+Math.round(38*CS));
+    pos('tb-down',  mg,       null, bt);
+  } else {
+    // 整組互換：上/下組移到右側（保持上下排列），左/右組移到左側（保持左右並排）
+    pos('tb-up',    null, mg+bw+sp, bt+Math.round(38*CS)); // 右側上方
+    pos('tb-down',  null, mg,       bt);                   // 右側下方
+    pos('tb-left',  mg,       null, bt);                   // 左側，左邊
+    pos('tb-right', mg+bw+sp, null, bt);                   // 左側，右邊
+  }
 }
 window.addEventListener('resize', resize);
 resize();
@@ -229,9 +238,10 @@ function rrect(x,y,w,h,r){
 }
 
 /* Piano lacquer outlined text (double strokeText → fill) */
-function drawOutlined(text,font,body,cx,cy,l1w,l2w,c1='#fff',c2='#000',alpha=1){
+function drawOutlined(text,font,body,cx,cy,l1w,l2w,c1='#fff',c2='#000',alpha=1,l3w=0,c3='#000'){
   ctx.save();
   ctx.globalAlpha=alpha; ctx.font=font; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.lineJoin='round';
+  if (l3w > 0) { ctx.strokeStyle=c3; ctx.lineWidth=l3w; ctx.strokeText(text,cx,cy); }
   ctx.strokeStyle=c2; ctx.lineWidth=l2w; ctx.strokeText(text,cx,cy);
   ctx.strokeStyle=c1; ctx.lineWidth=l1w; ctx.strokeText(text,cx,cy);
   if(Array.isArray(body)&&Array.isArray(body[0])){
@@ -481,6 +491,7 @@ const limitMs = urlParams.has('testLimit') ? 10000 : 15 * 60 * 1000;
 
 const BP=[10,10,62,30],BS=[80,10,52,30]; // Pause, Stop
 const B05=[140,10,52,30],B15=[200,10,52,30],B20=[260,10,52,30];
+const BSWITCH=[10,10,120,30]; // 切換方向鍵 (menu screens only)
 
 function resetGame(mode){
   gameMode=mode; player=new Player();
@@ -517,6 +528,7 @@ function handleClick(mx,my){
   if(state==='START'||state==='GAME_OVER'){
     if(inXYWH(mx,my,GW/2-80,btnSY,160,60)){startGame('normal');return;}
     if(inXYWH(mx,my,GW/2-80,btnFY,160,60)){startGame('fly');return;}
+    if(inR(mx,my,BSWITCH)){dirSwapped=!dirSwapped;resize();return;}
   }
   if(state==='PLAYING'||state==='PAUSED'){
     if(inR(mx,my,BP)){state=state==='PAUSED'?'PLAYING':'PAUSED';return;}
@@ -544,7 +556,8 @@ window.addEventListener('keydown',e=>{
     if(e.key==='ArrowRight'){const sp=[.5,1,1.5,2];let i=sp.indexOf(speedMult);if(i<0)i=1;speedMult=sp[Math.min(3,i+1)];}
   }
   if(['PLAYING','PAUSED'].includes(state)){
-    if(e.key==='ArrowDown'){escCnt++;if(escCnt>=5){escCnt=0;state='START';speedMult=1;btnSY=GH/2-30;btnFY=GH/2+50;}}
+    if(e.key==='ArrowDown'){escCnt++;if(escCnt>=6){escCnt=0;state='START';speedMult=1;btnSY=GH/2-30;btnFY=GH/2+50;}}
+    if(e.key==='ArrowUp'||e.key==='ArrowLeft'||e.key==='ArrowRight')escCnt=0;
     if(e.key==='Control')state=state==='PAUSED'?'PLAYING':'PAUSED';
   }
   if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' '].includes(e.key))e.preventDefault();
@@ -691,13 +704,19 @@ function drawScoreUI(){
 
 function drawTopBarUI(){
   const inG=state==='PLAYING'||state==='PAUSED';
-  // Pause
-  const ph=mInR(BP);
-  drawBtn(...BP,!inG?[100,100,100]:ph?[50,210,80]:[180,250,190],state==='PAUSED'?'繼續':'暫停',F_SM,'#000',8);
-  // Stop
-  const sh=mInR(BS);
-  drawBtn(...BS,!inG?[100,100,100]:sh?[255,105,180]:[255,200,220],'停止',F_SM,'#000',8);
-  // Speed
+  const inMenu=state==='START'||state==='GAME_OVER';
+  if(inG){
+    // 遊戲進行中：顯示暫停/停止按鈕
+    const ph=mInR(BP);
+    drawBtn(...BP,ph?[50,210,80]:[180,250,190],state==='PAUSED'?'繼續':'暫停',F_SM,'#000',8);
+    const sh=mInR(BS);
+    drawBtn(...BS,sh?[255,105,180]:[255,200,220],'停止',F_SM,'#000',8);
+  }
+  if(inMenu){
+    // 選單畫面：顯示切換方向鍵按鈕（固定顏色，不隨hover/狀態變色）
+    drawBtn(...BSWITCH,[100,180,230],'切換方向鍵',F_SM,'#000',8);
+  }
+  // Speed buttons: 選單與暫停時顯示
   const ok=['START','GAME_OVER','PAUSED'].includes(state);
   [[B05,.5,'0.5倍'],[B15,1.5,'1.5倍'],[B20,2.0,'2.0倍']].forEach(([btn,m,txt])=>{
     const sel=speedMult===m,hov=mInR(btn);
@@ -731,8 +750,8 @@ function drawFrame(){
 
   } else if(state==='GAME_OVER'){
     drawTopSpikes(0);
-    drawOutlined('遊戲結束',F_LG,'rgb(220,50,50)',GW/2,GH/3,4,9,'#fff','#000',1);
-    drawOutlined(`獲得分數: ${player.score}`,F_LG,[[0,0,0],[0,50,160]],GW/2,GH/2,4,9,'#fff','#000',1);
+    drawOutlined('遊戲結束',F_LG,[[0,0,139],[221,160,221]],GW/2,GH/3,4,9,'#fff','#800080',1);
+    drawOutlined(`獲得分數: ${player.score}`,F_LG,[[139,0,0],[255,255,153]],GW/2,GH/2,8,14,'#fff','#8B0000',1);
     if(mInR([GW/2-80,btnSY,160,60]))selIdx=0; if(mInR([GW/2-80,btnFY,160,60]))selIdx=1;
     drawBtn(GW/2-80,btnSY,160,60,[255,120,0],'重新開始',selIdx===0?F_MED_B:F_MED,'#fff',15);
     drawBtn(GW/2-80,btnFY,160,60,[255,105,180],'飛高高吧',selIdx===1?F_MED_B:F_MED,'#fff',15);
