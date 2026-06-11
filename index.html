@@ -165,12 +165,12 @@ function layoutBtns(cw,ch) {
   if(!dirSwapped){
     pos('tb-left',  null, mg+bw+sp, bt);
     pos('tb-right', null, mg,       bt);
-    pos('tb-up',    mg+bw+sp, null, bt+Math.round(38*CS));
-    pos('tb-down',  mg,       null, bt);
+    pos('tb-up',    mg,       null, bt);
+    pos('tb-down',  mg+bw+sp, null, bt);
   } else {
-    // 整組互換：上/下組移到右側（保持上下排列），左/右組移到左側（保持左右並排）
-    pos('tb-up',    null, mg+bw+sp, bt+Math.round(38*CS)); // 右側上方
-    pos('tb-down',  null, mg,       bt);                   // 右側下方
+    // 整組互換：上/下組移到右側（保持水平排列），左/右組移到左側（保持左右並排）
+    pos('tb-up',    null, mg+bw+sp, bt);                   // 右側，左邊
+    pos('tb-down',  null, mg,       bt);                   // 右側，右邊
     pos('tb-left',  mg,       null, bt);                   // 左側，左邊
     pos('tb-right', mg+bw+sp, null, bt);                   // 左側，右邊
   }
