@@ -512,16 +512,27 @@ function startGame(mode){
 const keys={left:false,right:false,up:false,down:false};
 let mX=-1,mY=-1;
 
-let gStartX = 0, gStartY = 0;
-let gActive = false;
+const activeTouches = new Map();
+
+function updateGestureKeys() {
+  let left = false, right = false, up = false, down = false;
+  const thresh = 15;
+  for (const t of activeTouches.values()) {
+    const dx = t.curX - t.startX, dy = t.curY - t.startY;
+    if (dx < -thresh) left = true;
+    if (dx > thresh) right = true;
+    if (dy < -thresh) up = true;
+    if (dy > thresh) down = true;
+  }
+  keys.left = left; keys.right = right; keys.up = up; keys.down = down;
+}
 
 canvas.addEventListener('pointermove',e=>{
   const rc=canvas.getBoundingClientRect();mX=(e.clientX-rc.left)/CS;mY=(e.clientY-rc.top)/CS;
-  if(useGesture && gActive && state === 'PLAYING') {
-    const dx = mX - gStartX, dy = mY - gStartY;
-    const thresh = 15;
-    keys.left = dx < -thresh; keys.right = dx > thresh;
-    keys.up = dy < -thresh; keys.down = dy > thresh;
+  if(useGesture && state === 'PLAYING' && activeTouches.has(e.pointerId)) {
+    const t = activeTouches.get(e.pointerId);
+    t.curX = mX; t.curY = mY;
+    updateGestureKeys();
   }
 });
 canvas.addEventListener('pointerdown',e=>{
@@ -529,14 +540,16 @@ canvas.addEventListener('pointerdown',e=>{
   const rc=canvas.getBoundingClientRect();
   const mx=(e.clientX-rc.left)/CS, my=(e.clientY-rc.top)/CS;
   if(useGesture && state === 'PLAYING') {
-    gStartX = mx; gStartY = my; gActive = true;
+    if(activeTouches.size < 2) {
+      activeTouches.set(e.pointerId, { startX: mx, startY: my, curX: mx, curY: my });
+    }
   }
   handleClick(mx, my);
 });
-const endGesture = () => {
-  if (gActive) {
-    gActive = false;
-    keys.left = keys.right = keys.up = keys.down = false;
+const endGesture = (e) => {
+  if (e && e.pointerId != null && activeTouches.has(e.pointerId)) {
+    activeTouches.delete(e.pointerId);
+    updateGestureKeys();
   }
 };
 canvas.addEventListener('pointerup', endGesture);
