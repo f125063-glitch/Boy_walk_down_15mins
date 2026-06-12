@@ -145,6 +145,7 @@ canvas.width = GW; canvas.height = GH;
 const wrapper = document.getElementById('wrapper');
 let CS = 1; // canvasScale
 let dirSwapped = false; // 切換方向鍵位置
+let useGesture = false; // 使用手勢
 
 function resize() {
   CS = Math.min(window.innerWidth/GW, window.innerHeight/GH);
@@ -160,7 +161,7 @@ function layoutBtns(cw,ch) {
   function pos(id,l,r,b){
     const el=document.getElementById(id);
     el.style.cssText+=`;width:${bw}px;height:${bh}px;font-size:${fs};`+
-      `left:${l!=null?l+'px':'auto'};right:${r!=null?r+'px':'auto'};bottom:${b}px;top:auto`;
+      `left:${l!=null?l+'px':'auto'};right:${r!=null?r+'px':'auto'};bottom:${b}px;top:auto;display:${useGesture?'none':'flex'}`;
   }
   if(!dirSwapped){
     pos('tb-left',  null, mg+bw+sp, bt);
@@ -492,6 +493,7 @@ const limitMs = urlParams.has('testLimit') ? 10000 : 15 * 60 * 1000;
 const BP=[10,10,62,30],BS=[80,10,52,30]; // Pause, Stop
 const B05=[140,10,52,30],B15=[200,10,52,30],B20=[260,10,52,30];
 const BSWITCH=[10,10,120,30]; // 切換方向鍵 (menu screens only)
+const BGESTURE=[GW-130,10,120,30]; // 使用手勢
 
 function resetGame(mode){
   gameMode=mode; player=new Player();
@@ -510,14 +512,36 @@ function startGame(mode){
 const keys={left:false,right:false,up:false,down:false};
 let mX=-1,mY=-1;
 
+let gStartX = 0, gStartY = 0;
+let gActive = false;
+
 canvas.addEventListener('pointermove',e=>{
   const rc=canvas.getBoundingClientRect();mX=(e.clientX-rc.left)/CS;mY=(e.clientY-rc.top)/CS;
+  if(useGesture && gActive && state === 'PLAYING') {
+    const dx = mX - gStartX, dy = mY - gStartY;
+    const thresh = 15;
+    keys.left = dx < -thresh; keys.right = dx > thresh;
+    keys.up = dy < -thresh; keys.down = dy > thresh;
+  }
 });
 canvas.addEventListener('pointerdown',e=>{
   initSounds();if(AC?.state==='suspended')AC.resume();
   const rc=canvas.getBoundingClientRect();
-  handleClick((e.clientX-rc.left)/CS,(e.clientY-rc.top)/CS);
+  const mx=(e.clientX-rc.left)/CS, my=(e.clientY-rc.top)/CS;
+  if(useGesture && state === 'PLAYING') {
+    gStartX = mx; gStartY = my; gActive = true;
+  }
+  handleClick(mx, my);
 });
+const endGesture = () => {
+  if (gActive) {
+    gActive = false;
+    keys.left = keys.right = keys.up = keys.down = false;
+  }
+};
+canvas.addEventListener('pointerup', endGesture);
+canvas.addEventListener('pointercancel', endGesture);
+canvas.addEventListener('pointerleave', endGesture);
 
 function inR(mx,my,b){return mx>=b[0]&&mx<=b[0]+b[2]&&my>=b[1]&&my<=b[1]+b[3];}
 function inXYWH(mx,my,x,y,w,h){return mx>=x&&mx<=x+w&&my>=y&&my<=y+h;}
@@ -529,6 +553,7 @@ function handleClick(mx,my){
     if(inXYWH(mx,my,GW/2-80,btnSY,160,60)){startGame('normal');return;}
     if(inXYWH(mx,my,GW/2-80,btnFY,160,60)){startGame('fly');return;}
     if(inR(mx,my,BSWITCH)){dirSwapped=!dirSwapped;resize();return;}
+    if(inR(mx,my,BGESTURE)){useGesture=!useGesture;resize();return;}
   }
   if(state==='PLAYING'||state==='PAUSED'){
     if(inR(mx,my,BP)){state=state==='PAUSED'?'PLAYING':'PAUSED';return;}
@@ -713,8 +738,11 @@ function drawTopBarUI(){
     drawBtn(...BS,sh?[255,105,180]:[255,200,220],'停止',F_SM,'#000',8);
   }
   if(inMenu){
-    // 選單畫面：顯示切換方向鍵按鈕（固定顏色，不隨hover/狀態變色）
-    drawBtn(...BSWITCH,[100,180,230],'切換方向鍵',F_SM,'#000',8);
+    // 選單畫面：顯示切換方向鍵按鈕與使用手勢按鈕
+    const switchCol = useGesture ? [100,100,100] : [100,180,230];
+    const gestureCol = useGesture ? [100,180,230] : [100,100,100];
+    drawBtn(...BSWITCH,switchCol,'切換方向鍵',F_SM,'#000',8);
+    drawBtn(...BGESTURE,gestureCol,'使用手勢',F_SM,'#000',8);
   }
   // Speed buttons: 選單與暫停時顯示
   const ok=['START','GAME_OVER','PAUSED'].includes(state);
