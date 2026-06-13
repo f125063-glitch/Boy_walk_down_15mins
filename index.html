@@ -171,9 +171,9 @@ function resize() {
   layoutBtns(cw,ch);
 }
 function layoutBtns(cw,ch) {
-  const bw=Math.round(68*0.75*CS), bh=Math.round(68*0.75*CS);
-  const mg=Math.round(8*CS),  bt=Math.round(14*CS), sp=Math.round(10*0.75*CS);
-  const fs=Math.round(22*0.75*CS)+'px';
+  const bw=Math.round(68*1.1*CS), bh=Math.round(68*1.1*CS);
+  const mg=Math.round(8*CS),  bt=Math.round(14*CS), sp=Math.round(10*1.1*CS);
+  const fs=Math.round(22*1.1*CS)+'px';
   function pos(id,l,r,b){
     const el=document.getElementById(id);
     el.style.cssText+=`;width:${bw}px;height:${bh}px;font-size:${fs};`+
