@@ -598,7 +598,7 @@ canvas.addEventListener('pointerdown',e=>{
   const rc=canvas.getBoundingClientRect();
   const mx=(e.clientX-rc.left)/CS, my=(e.clientY-rc.top)/CS;
   if(useGesture && state === 'PLAYING') {
-    if(activeTouches.size < 1) {
+    if(activeTouches.size < 2) {
       activeTouches.set(e.pointerId, { startX: mx, startY: my, curX: mx, curY: my });
     }
   }
@@ -894,7 +894,17 @@ function drawFrame(){
   } else if(state==='GAME_OVER'){
     drawTopSpikes(0);
     drawOutlined('遊戲結束',F_LG,[[0,0,139],[221,160,221]],GW/2,GH/3,4,9,'#fff','#800080',1);
-    drawOutlined(`獲得分數: ${player.score}`,F_LG,[[139,0,0],[255,255,153]],GW/2,GH/2,8,14,'#fff','#8B0000',1);
+    
+    let scoreBody = [[139,0,0],[255,255,153]];
+    let scoreOut1 = '#fff';
+    let scoreOut2 = '#8B0000';
+    if (gameMode === 'fly') {
+      scoreBody = [[0,100,0], [144,238,144]];
+      scoreOut1 = '#fff';
+      scoreOut2 = '#006400';
+    }
+    drawOutlined(`獲得分數: ${player.score}`,F_LG,scoreBody,GW/2,GH/2,8,14,scoreOut1,scoreOut2,1);
+
     if(mInR([GW/2-80,btnSY,160,60]))selIdx=0; if(mInR([GW/2-80,btnFY,160,60]))selIdx=1;
     drawBtn(GW/2-80,btnSY,160,60,[255,120,0],'重新開始',selIdx===0?F_MED_B:F_MED,'#fff',15);
     drawBtn(GW/2-80,btnFY,160,60,[255,105,180],'飛高高吧',selIdx===1?F_MED_B:F_MED,'#fff',15);
