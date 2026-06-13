@@ -35,6 +35,22 @@
     #tb-up    { background:rgba(255,195,0,0.18);  border-color:rgba(255,210,0,0.65);  }
     #tb-down  { background:rgba(255,70,70,0.18);  border-color:rgba(255,90,90,0.65);  }
 
+    @keyframes flash-white {
+      0% {
+        background-color: rgba(255, 255, 255, 1) !important;
+        border-color: rgba(255, 255, 255, 1) !important;
+        box-shadow: 0 0 15px rgba(255, 255, 255, 0.8) !important;
+        opacity: 1 !important;
+      }
+      100% {
+        /* returns to original styling */
+      }
+    }
+    .flash-active {
+      animation: flash-white 0.2s ease-out;
+    }
+
+
     /* ── Time Limit Dialog ── */
     #time-limit-overlay {
       position: absolute;
@@ -144,7 +160,7 @@ const ctx    = canvas.getContext('2d');
 canvas.width = GW; canvas.height = GH;
 const wrapper = document.getElementById('wrapper');
 let CS = 1; // canvasScale
-let dirSwapped = false; // 切換方向鍵位置
+let layoutMode = 0; // 切換方向鍵配置模式 (0-5)
 let useGesture = false; // 使用手勢
 
 function resize() {
@@ -163,17 +179,40 @@ function layoutBtns(cw,ch) {
     el.style.cssText+=`;width:${bw}px;height:${bh}px;font-size:${fs};`+
       `left:${l!=null?l+'px':'auto'};right:${r!=null?r+'px':'auto'};bottom:${b}px;top:auto;display:${useGesture?'none':'flex'}`;
   }
-  if(!dirSwapped){
+  if (layoutMode === 0) {
     pos('tb-left',  null, mg+bw+sp, bt);
     pos('tb-right', null, mg,       bt);
     pos('tb-up',    mg,       null, bt);
     pos('tb-down',  mg+bw+sp, null, bt);
-  } else {
-    // 整組互換：上/下組移到右側（保持水平排列），左/右組移到左側（保持左右並排）
-    pos('tb-up',    null, mg+bw+sp, bt);                   // 右側，左邊
-    pos('tb-down',  null, mg,       bt);                   // 右側，右邊
-    pos('tb-left',  mg,       null, bt);                   // 左側，左邊
-    pos('tb-right', mg+bw+sp, null, bt);                   // 左側，右邊
+  } else if (layoutMode === 1) {
+    pos('tb-up',    null, mg+bw+sp, bt);
+    pos('tb-down',  null, mg,       bt);
+    pos('tb-left',  mg,       null, bt);
+    pos('tb-right', mg+bw+sp, null, bt);
+  } else if (layoutMode === 2) {
+    // 1. 在底部左邊: 方向鍵依序為”左/下/右”, 並且在同一列; 在底部右邊: 方向鍵”上”, 與其他方向鍵在同一列
+    pos('tb-left',  mg,             null, bt);
+    pos('tb-down',  mg + bw + sp,   null, bt);
+    pos('tb-right', mg + 2*(bw+sp), null, bt);
+    pos('tb-up',    null,           mg,   bt);
+  } else if (layoutMode === 3) {
+    // 2. 在底部右邊: 方向鍵依序為”左/下/右”, 並且在同一列; 在底部左邊: 方向鍵”上”, 與其他方向鍵在同一列
+    pos('tb-left',  null,           mg + 2*(bw+sp), bt);
+    pos('tb-down',  null,           mg + bw + sp,   bt);
+    pos('tb-right', null,           mg,             bt);
+    pos('tb-up',    mg,             null,           bt);
+  } else if (layoutMode === 4) {
+    // 3. 在底部左邊: 分成3列顯示方向鍵 (第一列: 上, 第二列: 左 右, 第三列: 下)
+    pos('tb-up',    mg + bw + sp,   null, bt + 2*(bh+sp));
+    pos('tb-left',  mg,             null, bt + bh + sp);
+    pos('tb-right', mg + 2*(bw+sp), null, bt + bh + sp);
+    pos('tb-down',  mg + bw + sp,   null, bt);
+  } else if (layoutMode === 5) {
+    // 4. 在底部右邊: 分成3列顯示方向鍵 (第一列: 上, 第二列: 左 右, 第三列: 下)
+    pos('tb-up',    null,           mg + bw + sp,   bt + 2*(bh+sp));
+    pos('tb-left',  null,           mg + 2*(bw+sp), bt + bh + sp);
+    pos('tb-right', null,           mg,             bt + bh + sp);
+    pos('tb-down',  null,           mg + bw + sp,   bt);
   }
 }
 window.addEventListener('resize', resize);
@@ -565,7 +604,7 @@ function handleClick(mx,my){
   if(state==='START'||state==='GAME_OVER'){
     if(inXYWH(mx,my,GW/2-80,btnSY,160,60)){startGame('normal');return;}
     if(inXYWH(mx,my,GW/2-80,btnFY,160,60)){startGame('fly');return;}
-    if(inR(mx,my,BSWITCH)){dirSwapped=!dirSwapped;resize();return;}
+    if(inR(mx,my,BSWITCH)){layoutMode=(layoutMode+1)%6;resize();return;}
     if(inR(mx,my,BGESTURE)){useGesture=!useGesture;resize();return;}
   }
   if(state==='PLAYING'||state==='PAUSED'){
@@ -580,12 +619,29 @@ function handleClick(mx,my){
 }
 
 // Keyboard
+function triggerFlash(dir) {
+  const el = document.getElementById('tb-' + dir);
+  if (el) {
+    el.classList.remove('flash-active');
+    void el.offsetWidth; // force reflow
+    el.classList.add('flash-active');
+  }
+}
+
 window.addEventListener('keydown',e=>{
   if(isTimeRestricted)return;
-  if(e.key==='ArrowLeft' ||e.key==='a')keys.left =true;
-  if(e.key==='ArrowRight'||e.key==='d')keys.right=true;
-  if(e.key==='ArrowUp'   ||e.key==='w')keys.up   =true;
-  if(e.key==='ArrowDown' ||e.key==='s')keys.down =true;
+  let pressedKey = null;
+  if(e.key==='ArrowLeft' ||e.key==='a') { if(!keys.left) { keys.left=true; pressedKey='left'; } }
+  if(e.key==='ArrowRight'||e.key==='d') { if(!keys.right){ keys.right=true; pressedKey='right'; } }
+  if(e.key==='ArrowUp'   ||e.key==='w') { if(!keys.up)   { keys.up=true; pressedKey='up'; } }
+  if(e.key==='ArrowDown' ||e.key==='s') { if(!keys.down) { keys.down=true; pressedKey='down'; } }
+
+  if(pressedKey){
+    triggerFlash(pressedKey);
+    const btn = document.getElementById('tb-' + pressedKey);
+    if(btn) btn.classList.add('pressed');
+  }
+
   if(['START','GAME_OVER'].includes(state)){
     if(e.key==='ArrowUp')   selIdx=(selIdx-1+2)%2;
     if(e.key==='ArrowDown') selIdx=(selIdx+1)%2;
@@ -602,17 +658,39 @@ window.addEventListener('keydown',e=>{
 });
 window.addEventListener('keyup',e=>{
   if(isTimeRestricted)return;
-  if(e.key==='ArrowLeft' ||e.key==='a')keys.left =false;
-  if(e.key==='ArrowRight'||e.key==='d')keys.right=false;
-  if(e.key==='ArrowUp'   ||e.key==='w')keys.up   =false;
-  if(e.key==='ArrowDown' ||e.key==='s')keys.down =false;
+  let releasedKey = null;
+  if(e.key==='ArrowLeft' ||e.key==='a') { keys.left =false; releasedKey='left'; }
+  if(e.key==='ArrowRight'||e.key==='d') { keys.right=false; releasedKey='right'; }
+  if(e.key==='ArrowUp'   ||e.key==='w') { keys.up   =false; releasedKey='up'; }
+  if(e.key==='ArrowDown' ||e.key==='s') { keys.down =false; releasedKey='down'; }
+
+  if(releasedKey){
+    const btn = document.getElementById('tb-' + releasedKey);
+    if(btn) btn.classList.remove('pressed');
+  }
 });
 
 // Touch direction buttons
 ['left','right','up','down'].forEach(dir=>{
   const el=document.getElementById('tb-'+dir);
-  const on=ev=>{if(isTimeRestricted)return;ev.preventDefault();keys[dir]=true;el.classList.add('pressed');initSounds();};
-  const off=ev=>{ev.preventDefault();keys[dir]=false;el.classList.remove('pressed');};
+  el.addEventListener('animationend', () => {
+    el.classList.remove('flash-active');
+  });
+  const on=ev=>{
+    if(isTimeRestricted)return;
+    ev.preventDefault();
+    if(!keys[dir]){
+      keys[dir]=true;
+      triggerFlash(dir);
+    }
+    el.classList.add('pressed');
+    initSounds();
+  };
+  const off=ev=>{
+    ev.preventDefault();
+    keys[dir]=false;
+    el.classList.remove('pressed');
+  };
   el.addEventListener('pointerdown',e=>{on(e);try{el.setPointerCapture(e.pointerId);}catch(_){}});
   ['pointerup','pointercancel','pointerleave'].forEach(t=>el.addEventListener(t,off));
   el.addEventListener('pointermove',e=>e.preventDefault());
