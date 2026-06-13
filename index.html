@@ -202,17 +202,19 @@ function layoutBtns(cw,ch) {
     pos('tb-right', null,           mg,             bt);
     pos('tb-up',    mg,             null,           bt);
   } else if (layoutMode === 4) {
-    // 3. 在底部左邊: 分成3列顯示方向鍵 (第一列: 上, 第二列: 左 右, 第三列: 下)
-    pos('tb-up',    mg + bw + sp,   null, bt + 2*(bh+sp));
-    pos('tb-left',  mg,             null, bt + bh + sp);
-    pos('tb-right', mg + 2*(bw+sp), null, bt + bh + sp);
-    pos('tb-down',  mg + bw + sp,   null, bt);
+    // 3. 在底部左邊: 分成3列顯示方向鍵 (第一列: 上, 第二列: 左 右, 第三列: 下) — 間距縮小50%
+    const sp4 = Math.round(sp * 0.5);
+    pos('tb-up',    mg + bw + sp4,   null, bt + 2*(bh+sp4));
+    pos('tb-left',  mg,              null, bt + bh + sp4);
+    pos('tb-right', mg + 2*(bw+sp4), null, bt + bh + sp4);
+    pos('tb-down',  mg + bw + sp4,   null, bt);
   } else if (layoutMode === 5) {
-    // 4. 在底部右邊: 分成3列顯示方向鍵 (第一列: 上, 第二列: 左 右, 第三列: 下)
-    pos('tb-up',    null,           mg + bw + sp,   bt + 2*(bh+sp));
-    pos('tb-left',  null,           mg + 2*(bw+sp), bt + bh + sp);
-    pos('tb-right', null,           mg,             bt + bh + sp);
-    pos('tb-down',  null,           mg + bw + sp,   bt);
+    // 4. 在底部右邊: 分成3列顯示方向鍵 (第一列: 上, 第二列: 左 右, 第三列: 下) — 間距縮小50%
+    const sp5 = Math.round(sp * 0.5);
+    pos('tb-up',    null,            mg + bw + sp5,    bt + 2*(bh+sp5));
+    pos('tb-left',  null,            mg + 2*(bw+sp5),  bt + bh + sp5);
+    pos('tb-right', null,            mg,               bt + bh + sp5);
+    pos('tb-down',  null,            mg + bw + sp5,    bt);
   } else if (layoutMode === 6) {
     // 5. 在底部左邊: 方向鍵依序為"左/右/下", 並且在同一列; 在底部右邊: 方向鍵"上", 與其他方向鍵在同一列
     pos('tb-left',  mg,             null, bt);
@@ -682,7 +684,8 @@ window.addEventListener('keyup',e=>{
   }
 });
 
-// Touch direction buttons
+// Touch direction buttons — 最多同時接受 2 個方向輸入
+const touchPressedDirs = new Set();
 ['left','right','up','down'].forEach(dir=>{
   const el=document.getElementById('tb-'+dir);
   el.addEventListener('animationend', () => {
@@ -691,8 +694,11 @@ window.addEventListener('keyup',e=>{
   const on=ev=>{
     if(isTimeRestricted)return;
     ev.preventDefault();
+    // 若此方向尚未按下，且已有 2 個方向被按住，則不再新增
+    if(!touchPressedDirs.has(dir) && touchPressedDirs.size >= 2) return;
     if(!keys[dir]){
       keys[dir]=true;
+      touchPressedDirs.add(dir);
       triggerFlash(dir);
     }
     el.classList.add('pressed');
@@ -701,6 +707,7 @@ window.addEventListener('keyup',e=>{
   const off=ev=>{
     ev.preventDefault();
     keys[dir]=false;
+    touchPressedDirs.delete(dir);
     el.classList.remove('pressed');
   };
   el.addEventListener('pointerdown',e=>{on(e);try{el.setPointerCapture(e.pointerId);}catch(_){}});
