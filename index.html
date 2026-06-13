@@ -213,6 +213,18 @@ function layoutBtns(cw,ch) {
     pos('tb-left',  null,           mg + 2*(bw+sp), bt + bh + sp);
     pos('tb-right', null,           mg,             bt + bh + sp);
     pos('tb-down',  null,           mg + bw + sp,   bt);
+  } else if (layoutMode === 6) {
+    // 5. 在底部左邊: 方向鍵依序為"左/右/下", 並且在同一列; 在底部右邊: 方向鍵"上", 與其他方向鍵在同一列
+    pos('tb-left',  mg,             null, bt);
+    pos('tb-right', mg + bw + sp,   null, bt);
+    pos('tb-down',  mg + 2*(bw+sp), null, bt);
+    pos('tb-up',    null,           mg,   bt);
+  } else if (layoutMode === 7) {
+    // 6. 在底部右邊: 方向鍵依序為"左/右/下", 並且在同一列; 在底部左邊: 方向鍵"上", 與其他方向鍵在同一列
+    pos('tb-left',  null,           mg + 2*(bw+sp), bt);
+    pos('tb-right', null,           mg + bw + sp,   bt);
+    pos('tb-down',  null,           mg,             bt);
+    pos('tb-up',    mg,             null,           bt);
   }
 }
 window.addEventListener('resize', resize);
@@ -604,7 +616,7 @@ function handleClick(mx,my){
   if(state==='START'||state==='GAME_OVER'){
     if(inXYWH(mx,my,GW/2-80,btnSY,160,60)){startGame('normal');return;}
     if(inXYWH(mx,my,GW/2-80,btnFY,160,60)){startGame('fly');return;}
-    if(inR(mx,my,BSWITCH)){layoutMode=(layoutMode+1)%6;resize();return;}
+    if(inR(mx,my,BSWITCH)){layoutMode=(layoutMode+1)%8;resize();return;}
     if(inR(mx,my,BGESTURE)){useGesture=!useGesture;resize();return;}
   }
   if(state==='PLAYING'||state==='PAUSED'){
