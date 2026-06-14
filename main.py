@@ -173,7 +173,7 @@ SCORE_RAINBOW_L1 = [(dx, dy) for dx in range(-3, 4) for dy in range(-3, 4) if 0 
 SCORE_RAINBOW_L2 = [(dx, dy) for dx in range(-6, 7) for dy in range(-6, 7) if 0 < dx*dx + dy*dy <= 45]
 
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("小朋友下樓梯")
+pygame.display.set_caption("球球大冒險")
 
 # Load background image
 try:
@@ -816,7 +816,7 @@ def main():
             draw_top_spikes(screen, 0)
             # 字本體與外框同步，透明度從 0% 到 95%（alpha 0→242），每 2 秒循環一次；第二層外框為黑色
             title_alpha = int((pygame.time.get_ticks() % 2000) / 2000 * 242)
-            draw_outlined_text("小朋友下樓梯", font_large_bold, BLACK, screen, WIDTH // 2, HEIGHT // 3, NORMAL_OUTLINE_OFFSETS, RAINBOW_OUTLINE_OFFSETS, outline_color2=BLACK, body_alpha=title_alpha, outline_alpha=title_alpha)
+            draw_outlined_text("球球大冒險", font_large_bold, BLACK, screen, WIDTH // 2, HEIGHT // 3, NORMAL_OUTLINE_OFFSETS, RAINBOW_OUTLINE_OFFSETS, outline_color2=BLACK, body_alpha=title_alpha, outline_alpha=title_alpha)
 
             # Start Button (3D) — normal mode
             pressed = btn_start.collidepoint(mouse_pos) and mouse_clicked
@@ -1135,7 +1135,7 @@ def main():
                 score_out1 = WHITE
                 score_out2 = (0, 100, 0)
             else:
-                score_body = ((139, 0, 0), (255, 255, 153))
+                score_body = ((139, 0, 0), (255, 128, 128))
                 score_out1 = WHITE
                 score_out2 = (139, 0, 0)
             draw_outlined_text(f"獲得分數: {player.score}", font_large_bold, score_body, screen, WIDTH // 2, HEIGHT // 2, SCORE_L1_OFFSETS, SCORE_L2_OFFSETS, outline_color1=score_out1, outline_color2=score_out2)

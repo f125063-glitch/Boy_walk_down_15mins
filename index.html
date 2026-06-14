@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="description" content="小朋友下樓梯 – 手機電腦都能暢玩的樓梯跳躍遊戲">
-  <title>小朋友下樓梯</title>
+  <meta name="description" content="球球大冒險 – 手機電腦都能暢玩的樓梯跳躍遊戲">
+  <title>球球大冒險</title>
   <style>
     *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
     html { height:100%; overscroll-behavior:none; }
@@ -874,7 +874,7 @@ function drawFrame(){
   if(state==='START'){
     drawTopSpikes(0);
     const ta=((Date.now()%2000)/2000)*(242/255);
-    drawOutlined('小朋友下樓梯',F_LG,'#000',GW/2,GH/3,4,9,'#fff','#000',ta);
+    drawOutlined('球球大冒險',F_LG,'#000',GW/2,GH/3,4,9,'#fff','#000',ta);
     if(mInR([GW/2-80,btnSY,160,60]))selIdx=0; if(mInR([GW/2-80,btnFY,160,60]))selIdx=1;
     drawBtn(GW/2-80,btnSY,160,60,[255,120,0],'開始遊戲',selIdx===0?F_MED_B:F_MED,'#fff',15);
     drawBtn(GW/2-80,btnFY,160,60,[255,105,180],'飛高高吧',selIdx===1?F_MED_B:F_MED,'#fff',15);
@@ -895,7 +895,7 @@ function drawFrame(){
     drawTopSpikes(0);
     drawOutlined('遊戲結束',F_LG,[[0,0,139],[221,160,221]],GW/2,GH/3,4,9,'#fff','#800080',1);
     
-    let scoreBody = [[139,0,0],[255,255,153]];
+    let scoreBody = [[139,0,0],[255,128,128]];
     let scoreOut1 = '#fff';
     let scoreOut2 = '#8B0000';
     if (gameMode === 'fly') {
