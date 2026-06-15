@@ -376,6 +376,7 @@ class Player{
     this.lastPlat=null; this.curPlat=null;
     this.downT=0; this.upT=0; this.upWas=false; this.upBoosting=false; this.upUsed=true;
     this.healSupp=false;
+    this.rainbowSafeCombo=0; // consecutive non-damaging landings while in rainbow mode (normal mode only)
   }
   get left()  {return this.x;}        set left(v)  {this.x=v;}
   get right() {return this.x+this.w;} set right(v) {this.x=v-this.w;}
@@ -391,6 +392,7 @@ class Player{
       this.healSupp=false; this.flashT=30; this.flashType='DEC';
       playBuf(SFX.damage); this.flyUpCnt=0;
       if(this.rainbow&&!this.flyMode){this.rainbow=false;this.combo=0;this.scoreMult=1;this.rainbowOutT=0;}
+      this.rainbowSafeCombo=0; // damage resets the rainbow safe combo
     } else if(amt>0){
       if(this.flyMode&&this.hp>=this.maxHp)this.healSupp=true;
       if(!this.healSupp){this.flashT=30;this.flashType='INC';playBuf(SFX.heal);}
@@ -746,15 +748,26 @@ function updateGame(){
       if(p.type==='spike'){
         player.hurt(-1); if(isNew)player.combo=0; player.onSpikeP=true;
       } else if(p.type==='heal'){
-        if(isNew){player.combo++;player.healLand=0;player.score+=2*player.scoreMult;}
+        if(isNew){player.combo++;player.healLand=0;player.score+=2*player.scoreMult;
+          // Rainbow safe combo tracking (normal game mode only)
+          if(player.rainbow&&!player.flyMode){player.rainbowSafeCombo++;if(player.rainbowSafeCombo>=6){player.score+=18;player.rainbowSafeCombo=0;}}
+        }
         if(player.hp<player.maxHp&&p.healed<3){player.healLand++;if(player.healLand>=45){player.healLand=0;player.hurt(1);p.healed++;}}
       } else if(p.type==='fade'){
-        if(isNew){if(player.rainbow&&!player.flyMode){player.rainbow=false;player.scoreMult=1;player.rainbowOutT=0;}player.combo=0;p.fading=true;}
+        if(isNew){
+          // White (fade) stair: deduct 1 HP and break rainbow/combo
+          player.hurt(-1);
+          if(player.rainbow&&!player.flyMode){player.rainbow=false;player.scoreMult=1;player.rainbowOutT=0;}
+          player.combo=0;player.rainbowSafeCombo=0;p.fading=true;
+        }
       } else if(p.type==='purple'){
-        if(isNew){if(player.rainbow&&!player.flyMode){player.rainbow=false;player.scoreMult=1;player.rainbowOutT=0;}player.combo=0;}
+        if(isNew){if(player.rainbow&&!player.flyMode){player.rainbow=false;player.scoreMult=1;player.rainbowOutT=0;}player.combo=0;player.rainbowSafeCombo=0;}
         if(!p.triggered){p.triggered=true;p.trigT=0;}
       } else {
-        if(isNew){player.combo++;player.normLand=0;player.score+=1*player.scoreMult;}
+        if(isNew){player.combo++;player.normLand=0;player.score+=1*player.scoreMult;
+          // Rainbow safe combo tracking (normal game mode only)
+          if(player.rainbow&&!player.flyMode){player.rainbowSafeCombo++;if(player.rainbowSafeCombo>=6){player.score+=18;player.rainbowSafeCombo=0;}}
+        }
         if(player.hp<player.maxHp&&p.healed<1){player.normLand++;if(player.normLand>=60){player.normLand=0;player.hurt(1);p.healed++;}}
       }
       if(player.combo>=5&&!player.rainbow){player.rainbow=true;player.scoreMult=2;player.rainbowOutT=0;}

@@ -238,6 +238,7 @@ class Player:
         self.up_used_this_fall = True  # must land on a platform before first use
         self.current_platform = None
         self.heal_suppressed = False  # 飛高高吧模式：血量達200%後壓制回血效果
+        self.rainbow_safe_combo = 0   # consecutive non-damaging landings while in rainbow mode (normal game mode)
 
     def modify_health(self, amount):
         self.health += amount
@@ -256,6 +257,7 @@ class Player:
                 self.combo_green_blue = 0
                 self.score_multiplier = 1
                 self.rainbow_outline_timer = 0.0
+            self.rainbow_safe_combo = 0  # damage resets the rainbow safe combo
         elif amount > 0:
             # 飛高高吧：血量達 max_health（200%）後壓制回血音效與外框閃爍
             if self.is_fly_mode and self.health >= self.max_health:
@@ -907,6 +909,12 @@ def main():
                                 player.combo_green_blue += 1
                                 player.heal_land_counter = 0
                                 player.score += 2 * player.score_multiplier
+                                # Rainbow safe combo tracking (normal game mode only)
+                                if player.rainbow_mode and not player.is_fly_mode:
+                                    player.rainbow_safe_combo += 1
+                                    if player.rainbow_safe_combo >= 6:
+                                        player.score += 18
+                                        player.rainbow_safe_combo = 0
                             if player.health < player.max_health and p.healed_amount < 3:
                                 player.heal_land_counter += 1
                                 if player.heal_land_counter >= 45:
@@ -915,11 +923,14 @@ def main():
                                     p.healed_amount += 1
                         elif p.type == "fade":
                             if is_new_landing:
+                                # White (fade) stair: deduct 1 HP and break rainbow/combo
+                                player.modify_health(-1)
                                 if player.rainbow_mode and not player.is_fly_mode:
                                     player.rainbow_mode = False
                                     player.score_multiplier = 1
                                     player.rainbow_outline_timer = 0.0
                                 player.combo_green_blue = 0
+                                player.rainbow_safe_combo = 0
                                 p.fading = True  # start 2-second fade countdown
                         elif p.type == "purple":
                             if is_new_landing:
@@ -928,6 +939,7 @@ def main():
                                     player.score_multiplier = 1
                                     player.rainbow_outline_timer = 0.0
                                 player.combo_green_blue = 0
+                                player.rainbow_safe_combo = 0
                             if not p.triggered:
                                 p.triggered = True
                                 p.trigger_timer = 0.0
@@ -937,6 +949,12 @@ def main():
                                 player.combo_green_blue += 1
                                 player.normal_land_counter = 0
                                 player.score += 1 * player.score_multiplier
+                                # Rainbow safe combo tracking (normal game mode only)
+                                if player.rainbow_mode and not player.is_fly_mode:
+                                    player.rainbow_safe_combo += 1
+                                    if player.rainbow_safe_combo >= 6:
+                                        player.score += 18
+                                        player.rainbow_safe_combo = 0
                             if player.health < player.max_health and p.healed_amount < 1:
                                 player.normal_land_counter += 1
                                 if player.normal_land_counter >= 60:
