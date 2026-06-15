@@ -141,7 +141,7 @@
   <!-- Time Limit Overlay -->
   <div id="time-limit-overlay">
     <div class="dialog-card">
-      <div class="dialog-title">可愛的小眼睛該休息囉！</div>
+      <div class="dialog-title">時間到囉！</div>
       <input type="text" id="time-limit-input" class="dialog-input" placeholder="請輸入解鎖密碼" pattern="\d*">
       <div class="dialog-buttons">
         <button id="time-limit-confirm" class="dialog-btn btn-confirm">確認</button>
@@ -548,7 +548,7 @@ let btnSY=GH/2-30, btnFY=GH/2+50; // Y-pos for start / fly buttons (shift in GAM
 let pageStartTime=Date.now();
 let isTimeRestricted=false;
 const urlParams = new URLSearchParams(window.location.search);
-const limitMs = urlParams.has('testLimit') ? 10000 : 15 * 60 * 1000;
+const limitMs = urlParams.has('testLimit') ? 10000 : 12 * 60 * 1000;
 
 const BP=[10,10,62,30],BS=[80,10,52,30]; // Pause, Stop
 const B05=[140,10,52,30],B15=[200,10,52,30],B20=[260,10,52,30];
