@@ -227,6 +227,7 @@ class Player:
         self.rainbow_timer = 0.0  # for rainbow color cycling
         self.rainbow_outline_timer = 0.0  # for white outline fade-in
         self.score_multiplier = 1
+        self.extra_score_timer = 999.0
         self.hit_top_spike = False   # currently touching top spikes
         self.on_spike_platform = False  # currently standing on red spike platform
         self.last_landed_platform = None  # track last platform to avoid repeated counting
@@ -915,6 +916,7 @@ def main():
                                     if player.rainbow_safe_combo >= 6:
                                         player.score += 18
                                         player.rainbow_safe_combo = 0
+                                        player.extra_score_timer = 0.0
                             if player.health < player.max_health and p.healed_amount < 3:
                                 player.heal_land_counter += 1
                                 if player.heal_land_counter >= 45:
@@ -955,6 +957,7 @@ def main():
                                     if player.rainbow_safe_combo >= 6:
                                         player.score += 18
                                         player.rainbow_safe_combo = 0
+                                        player.extra_score_timer = 0.0
                             if player.health < player.max_health and p.healed_amount < 1:
                                 player.normal_land_counter += 1
                                 if player.normal_land_counter >= 60:
@@ -1130,6 +1133,14 @@ def main():
                                  WIDTH - 80, 60,
                                  SCORE_NORMAL_L1, SCORE_NORMAL_L2,
                                  255, player.is_fly_mode)
+
+            if player.extra_score_timer < 0.5:
+                player.extra_score_timer += 1.0 / 60.0
+                alpha = max(0, 255 - int((player.extra_score_timer / 0.5) * 255))
+                surf = score_font.render(score_text, True, WHITE)
+                surf.set_alpha(alpha)
+                rect = surf.get_rect(center=(WIDTH - 80, 60))
+                screen.blit(surf, rect)
 
             if state == "PAUSED":
                 s = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)

@@ -371,7 +371,7 @@ class Player{
     this.flashT=0; this.flashType='';
     this.hist=[]; this.upHist=[];
     this.healLand=0; this.normLand=0; this.combo=0;
-    this.rainbow=false; this.rainbowT=0; this.rainbowOutT=0; this.scoreMult=1;
+    this.rainbow=false; this.rainbowT=0; this.rainbowOutT=0; this.scoreMult=1; this.extraT=999;
     this.hitSpike=false; this.onSpikeP=false;
     this.lastPlat=null; this.curPlat=null;
     this.downT=0; this.upT=0; this.upWas=false; this.upBoosting=false; this.upUsed=true;
@@ -750,7 +750,7 @@ function updateGame(){
       } else if(p.type==='heal'){
         if(isNew){player.combo++;player.healLand=0;player.score+=2*player.scoreMult;
           // Rainbow safe combo tracking (normal game mode only)
-          if(player.rainbow&&!player.flyMode){player.rainbowSafeCombo++;if(player.rainbowSafeCombo>=6){player.score+=18;player.rainbowSafeCombo=0;}}
+          if(player.rainbow&&!player.flyMode){player.rainbowSafeCombo++;if(player.rainbowSafeCombo>=6){player.score+=18;player.rainbowSafeCombo=0;player.extraT=0;}}
         }
         if(player.hp<player.maxHp&&p.healed<3){player.healLand++;if(player.healLand>=45){player.healLand=0;player.hurt(1);p.healed++;}}
       } else if(p.type==='fade'){
@@ -766,7 +766,7 @@ function updateGame(){
       } else {
         if(isNew){player.combo++;player.normLand=0;player.score+=1*player.scoreMult;
           // Rainbow safe combo tracking (normal game mode only)
-          if(player.rainbow&&!player.flyMode){player.rainbowSafeCombo++;if(player.rainbowSafeCombo>=6){player.score+=18;player.rainbowSafeCombo=0;}}
+          if(player.rainbow&&!player.flyMode){player.rainbowSafeCombo++;if(player.rainbowSafeCombo>=6){player.score+=18;player.rainbowSafeCombo=0;player.extraT=0;}}
         }
         if(player.hp<player.maxHp&&p.healed<1){player.normLand++;if(player.normLand>=60){player.normLand=0;player.hurt(1);p.healed++;}}
       }
@@ -853,6 +853,19 @@ function drawScoreUI(){
   const font=isR?F_SM_RB:F_SM, text=`分數: ${player.score}`;
   if(isR){player.rainbowOutT+=1/60;drawScoreTxt(text,font,GW-80,60,6,13,Math.min(player.rainbowOutT/.25,1),player.flyMode);}
   else drawScoreTxt(text,font,GW-80,60,4,9,1,player.flyMode);
+  if(player.extraT < 0.5){
+    player.extraT += 1/60;
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, 1 - player.extraT/0.5);
+    ctx.translate(GW-80, 60);
+    ctx.translate(-(GW-80), -60);
+    ctx.font = font;
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, GW-80, 60);
+    ctx.restore();
+  }
 }
 
 function drawTopBarUI(){
