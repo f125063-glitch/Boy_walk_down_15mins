@@ -313,15 +313,15 @@ function drawOutlined(text,font,body,cx,cy,l1w,l2w,c1='#fff',c2='#000',alpha=1,l
 }
 
 /* Piano lacquer score text (red body + gloss) */
-function drawScoreTxt(text,font,cx,cy,l1w,l2w,oA=1,fly=false){
+function drawScoreTxt(text,font,cx,cy,l1w,l2w,oA=1,fly=false,bA=1){
   const bc=fly?'rgb(0,100,0)':'rgb(210,20,20)';
-  const gc=fly?'rgba(140,255,140,0.35)':'rgba(255,140,140,0.35)';
+  const gc=fly?`rgba(140,255,140,${0.35*bA})`:`rgba(255,140,140,${0.35*bA})`;
   ctx.save();
   ctx.font=font; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.lineJoin='round';
   ctx.globalAlpha=oA;
   ctx.strokeStyle='#000'; ctx.lineWidth=l2w; ctx.strokeText(text,cx,cy);
   ctx.strokeStyle='#fff'; ctx.lineWidth=l1w; ctx.strokeText(text,cx,cy);
-  ctx.globalAlpha=1; ctx.fillStyle=bc; ctx.fillText(text,cx,cy);
+  ctx.globalAlpha=bA; ctx.fillStyle=bc; ctx.fillText(text,cx,cy);
   ctx.fillStyle=gc; ctx.fillText(text,cx,cy-1);
   ctx.restore();
 }
@@ -808,7 +808,12 @@ function updateGame(){
 /* ═══════════════════════ DRAW ═══════════════════════ */
 function drawBg(){
   if(bgImg){
-    ctx.save();ctx.globalAlpha=.8;
+    let bgAlpha = 0.8;
+    if (player.score >= 401) bgAlpha = 1.0;
+    else if (player.score >= 301) bgAlpha = 0.95;
+    else if (player.score >= 201) bgAlpha = 0.90;
+    else if (player.score >= 101) bgAlpha = 0.85;
+    ctx.save();ctx.globalAlpha=bgAlpha;
     if(['START','GAME_OVER'].includes(state) && !isTimeRestricted)bgX=((bgX-BG_SPEED)%GW+GW)%GW;
     const bx=Math.round(bgX);
     ctx.drawImage(bgImg,bx,   0,GW,GH);
@@ -851,20 +856,18 @@ function drawHpBar(){
 function drawScoreUI(){
   const isR=player.rainbow;
   const font=isR?F_SM_RB:F_SM, text=`分數: ${player.score}`;
-  if(isR){player.rainbowOutT+=1/60;drawScoreTxt(text,font,GW-80,60,6,13,Math.min(player.rainbowOutT/.25,1),player.flyMode);}
-  else drawScoreTxt(text,font,GW-80,60,4,9,1,player.flyMode);
+  
+  let targetAlpha = 1;
   if(player.extraT < 0.5){
     player.extraT += 1/60;
-    ctx.save();
-    ctx.globalAlpha = Math.max(0, 1 - player.extraT/0.5);
-    ctx.translate(GW-80, 60);
-    ctx.translate(-(GW-80), -60);
-    ctx.font = font;
-    ctx.fillStyle = '#fff';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(text, GW-80, 60);
-    ctx.restore();
+    targetAlpha = Math.min(1, player.extraT / 0.5) * 0.95;
+  }
+  
+  if(isR){
+    player.rainbowOutT+=1/60;
+    drawScoreTxt(text,font,GW-80,60,6,13,Math.min(player.rainbowOutT/.25,1)*targetAlpha,player.flyMode,targetAlpha);
+  } else {
+    drawScoreTxt(text,font,GW-80,60,4,9,targetAlpha,player.flyMode,targetAlpha);
   }
 }
 
@@ -946,7 +949,14 @@ function loop(ts){
   const dt=Math.min((ts-lastT)/1000,.05);
   lastT=ts; 
   if(!isTimeRestricted){
-    acc+=dt*speedMult;
+    player.score = Math.min(99999, player.score);
+    let autoSpeedMult = 1.0;
+    if (player.score >= 401) autoSpeedMult = 1.4;
+    else if (player.score >= 301) autoSpeedMult = 1.3;
+    else if (player.score >= 201) autoSpeedMult = 1.2;
+    else if (player.score >= 101) autoSpeedMult = 1.1;
+
+    acc+=dt*(speedMult * autoSpeedMult);
     let steps=0;
     while(acc>=STEP&&steps<4){updateGame();acc-=STEP;steps++;}
   }

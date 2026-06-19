@@ -641,7 +641,7 @@ def draw_outlined_text(text, font, body_color, surface, center_x, center_y, l1_o
     surface.blit(body_surf, text_rect)
 
 def draw_piano_score(surface, score_font, score_text, center_x, center_y,
-                     l1_offsets, l2_offsets, outline_alpha=255, is_fly_mode=False):
+                     l1_offsets, l2_offsets, outline_alpha=255, is_fly_mode=False, body_alpha=255):
     """Draw score text with piano lacquer style.
 
     Layering order (back → front):
@@ -679,12 +679,14 @@ def draw_piano_score(surface, score_font, score_text, center_x, center_y,
         for dx, dy in l1_offsets:
             surface.blit(white_fade, (text_rect.x + dx, text_rect.y + dy))
 
-    # Red body (always full opacity)
+    # Red body
+    if body_alpha < 255:
+        body_surf.set_alpha(body_alpha)
     surface.blit(body_surf, text_rect)
 
     # Piano lacquer gloss: translucent bright highlight shifted 1px up
     gloss_copy = gloss_surf.copy()
-    gloss_copy.set_alpha(90)
+    gloss_copy.set_alpha(int(90 * (body_alpha / 255.0)))
     surface.blit(gloss_copy, (text_rect.x, text_rect.y - 1))
 
 def reset_game(game_mode="normal"):
@@ -734,10 +736,22 @@ def main():
     ctrl_pressed_last_frame = False
     running = True
     while running:
-        clock.tick(int(FPS * speed_multiplier))
+        player.score = min(99999, player.score)
+        auto_speed_mult = 1.0
+        if player.score >= 401: auto_speed_mult = 1.4
+        elif player.score >= 301: auto_speed_mult = 1.3
+        elif player.score >= 201: auto_speed_mult = 1.2
+        elif player.score >= 101: auto_speed_mult = 1.1
+
+        clock.tick(int(FPS * speed_multiplier * auto_speed_mult))
         screen.fill(WHITE)
         if bg_image:
-            bg_image.set_alpha(204)
+            bg_alpha = 204
+            if player.score >= 401: bg_alpha = 255
+            elif player.score >= 301: bg_alpha = 242
+            elif player.score >= 201: bg_alpha = 229
+            elif player.score >= 101: bg_alpha = 216
+            bg_image.set_alpha(bg_alpha)
             # Scroll background only on menu screens; freeze during gameplay
             if state in ["START", "GAME_OVER"]:
                 bg_x = (bg_x - BG_SCROLL_SPEED) % WIDTH
@@ -1117,30 +1131,29 @@ def main():
                 gloss_surf = pygame.Surface((health_width - 2, gloss_h), pygame.SRCALPHA)
                 gloss_surf.fill((255, 255, 255, 60))
                 screen.blit(gloss_surf, (WIDTH - 158 + 1, 12 + 2))
+            if player.extra_score_timer < 0.5:
+                player.extra_score_timer += 1.0 / 60.0
+                progress = min(1.0, player.extra_score_timer / 0.5)
+                current_alpha = int(progress * 255 * 0.95)
+            else:
+                current_alpha = 255
+
             score_font = font_small_rainbow if player.rainbow_mode else font_small
             score_text = f"分數: {player.score}"
             if player.rainbow_mode:
                 # 彩虹模式：同預設鋼琴烤漆規則，外框淡入後全顯
                 player.rainbow_outline_timer += 1.0 / 60.0
-                outline_alpha = int(min(player.rainbow_outline_timer / 0.25, 1.0) * 255)
+                outline_alpha = int(min(player.rainbow_outline_timer / 0.25, 1.0) * current_alpha)
                 draw_piano_score(screen, score_font, score_text,
                                  WIDTH - 80, 60,
                                  SCORE_RAINBOW_L1, SCORE_RAINBOW_L2,
-                                 outline_alpha, player.is_fly_mode)
+                                 outline_alpha, player.is_fly_mode, current_alpha)
             else:
                 # 預設模式：紅色鋼琴烤漆 + 白色L1外框 + 黑色L2外框（2倍寬）
                 draw_piano_score(screen, score_font, score_text,
                                  WIDTH - 80, 60,
                                  SCORE_NORMAL_L1, SCORE_NORMAL_L2,
-                                 255, player.is_fly_mode)
-
-            if player.extra_score_timer < 0.5:
-                player.extra_score_timer += 1.0 / 60.0
-                alpha = max(0, 255 - int((player.extra_score_timer / 0.5) * 255))
-                surf = score_font.render(score_text, True, WHITE)
-                surf.set_alpha(alpha)
-                rect = surf.get_rect(center=(WIDTH - 80, 60))
-                screen.blit(surf, rect)
+                                 current_alpha, player.is_fly_mode, current_alpha)
 
             if state == "PAUSED":
                 s = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
