@@ -723,6 +723,7 @@ def main():
     game_mode = "normal"  # "normal" = standard rules, "fly" = 飛高高吧 (unlimited up, no HP cost)
     selected_menu_index = 0
     down_key_escape_count = 0  # counter for 6× consecutive down key to return to START
+    score_style_alt = False  # True when any speed button pressed during GAME_OVER
 
     # UI Buttons
     btn_start = pygame.Rect(WIDTH // 2 - 80, HEIGHT // 2 - 30, 160, 60)
@@ -795,6 +796,8 @@ def main():
                             idx = 1
                         idx = max(0, idx - 1)
                         speed_multiplier = speeds[idx]
+                        if state == "GAME_OVER":
+                            score_style_alt = True
                 elif event.key == pygame.K_RIGHT:
                     if state in ["PLAYING", "PAUSED"]:
                         down_key_escape_count = 0
@@ -806,11 +809,14 @@ def main():
                             idx = 1
                         idx = min(len(speeds) - 1, idx + 1)
                         speed_multiplier = speeds[idx]
+                        if state == "GAME_OVER":
+                            score_style_alt = True
                 elif event.key == pygame.K_RETURN or event.key == pygame.K_KP_ENTER:
                     if state in ["START", "GAME_OVER"]:
                         state = "PLAYING"
                         game_mode = "normal" if selected_menu_index == 0 else "fly"
                         player, platforms = reset_game(game_mode)
+                        score_style_alt = False
                         btn_start.y = HEIGHT // 2 - 30
                         btn_fly.y = HEIGHT // 2 + 50
 
@@ -1172,7 +1178,11 @@ def main():
 
             draw_top_spikes(screen, 0)
             draw_outlined_text("遊戲結束", font_large_bold, ((0, 0, 139), (221, 160, 221)), screen, WIDTH // 2, HEIGHT // 3, NORMAL_OUTLINE_OFFSETS, RAINBOW_OUTLINE_OFFSETS, outline_color2=(128, 0, 128))
-            if game_mode == 'fly':
+            if score_style_alt:
+                score_body = ((0, 0, 0), (128, 128, 128))
+                score_out1 = WHITE
+                score_out2 = BLACK
+            elif game_mode == 'fly':
                 score_body = ((0, 100, 0), (144, 238, 144))
                 score_out1 = WHITE
                 score_out2 = (0, 100, 0)
@@ -1192,6 +1202,7 @@ def main():
                 state = "PLAYING"
                 game_mode = "normal"
                 player, platforms = reset_game("normal")
+                score_style_alt = False
                 btn_start.y = HEIGHT // 2 - 30
                 btn_fly.y = HEIGHT // 2 + 50
                 mouse_clicked = False  # consume click
@@ -1206,6 +1217,7 @@ def main():
                 state = "PLAYING"
                 game_mode = "fly"
                 player, platforms = reset_game("fly")
+                score_style_alt = False
                 btn_start.y = HEIGHT // 2 - 30
                 btn_fly.y = HEIGHT // 2 + 50
                 mouse_clicked = False  # consume click
@@ -1261,6 +1273,8 @@ def main():
             
             if sp_clickable and mouse_clicked and btn.collidepoint(mouse_pos):
                 speed_multiplier = mult
+                if state == "GAME_OVER":
+                    score_style_alt = True
 
         pygame.display.flip()
 
