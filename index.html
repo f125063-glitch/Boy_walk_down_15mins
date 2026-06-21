@@ -257,6 +257,14 @@ function playBuf(buf){
   if(AC.state==='suspended')AC.resume();
   const s=AC.createBufferSource(); s.buffer=buf; s.connect(AC.destination); s.start();
 }
+// 可指定音量版本：透過 GainNode 控制音量
+function playBufGain(buf,gain){
+  if(!AC||!buf)return;
+  if(AC.state==='suspended')AC.resume();
+  const s=AC.createBufferSource(); s.buffer=buf;
+  const g=AC.createGain(); g.gain.value=gain;
+  s.connect(g); g.connect(AC.destination); s.start();
+}
 const SFX={};
 function initSounds(){
   if(SFX.ready)return; SFX.ready=true;
@@ -771,7 +779,11 @@ function updateGame(){
     const ps=p.speed(),vOK=p.type==='spike'?player.velY>0:player.velY>=-ps;
     if(vOK&&p.top<=player.bottom&&player.bottom<=p.top+20&&player.right>p.left&&player.left<p.right){
       player.bottom=p.top; player.velY=-ps; onPlat=true; player.curPlat=p;
-      if(!p.stepped){p.stepped=true;p.flashT=.25;playBuf(SFX.coin);}
+      if(!p.stepped){p.stepped=true;p.flashT=.25;
+        // 滴答倒數中：踩階梯音效音量降低50%
+        const coinGain = (player.invertTimer > 0) ? 0.5 : 1.0;
+        playBufGain(SFX.coin, coinGain);
+      }
       const isNew=p!==player.lastPlat; player.lastPlat=p;
       if(isNew){player.upUsed=false;player.flyUpCnt=0;}
       if(p.type==='spike'){
