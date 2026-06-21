@@ -260,10 +260,11 @@ class Player:
         self.has_achieved_since_damage = False
 
     def trigger_extra_bonus(self):
-        self.invert_timer = 10.0
-        if not self.has_achieved_since_damage:
-            self.speed_timer = 10.0
-            self.has_achieved_since_damage = True
+        if self.invert_timer <= 0:
+            self.invert_timer = 10.0
+            if not self.has_achieved_since_damage:
+                self.speed_timer = 10.0
+                self.has_achieved_since_damage = True
 
     def modify_health(self, amount):
         self.health += amount
@@ -966,10 +967,11 @@ def main():
                             player.up_used_this_fall = False  # restore 1 up-boost for next fall
                             player.fly_up_count = 0
                         if p.type == "spike":
-                            player.modify_health(-1)
-                            if is_new_landing:
-                                # Spike breaks combo
-                                player.combo_green_blue = 0
+                            if player.invert_timer <= 0:
+                                player.modify_health(-1)
+                                if is_new_landing:
+                                    # Spike breaks combo
+                                    player.combo_green_blue = 0
                             # Visual: lower half purple, upper half transparent
                             player.on_spike_platform = True
                         elif p.type == "heal":
@@ -995,24 +997,26 @@ def main():
                         elif p.type == "fade":
                             if is_new_landing:
                                 # White (fade) stair: deduct 1 HP and break rainbow/combo
-                                player.modify_health(-1)
-                                if player.rainbow_mode and not player.is_fly_mode:
-                                    player.rainbow_mode = False
-                                    player.score_multiplier = 1
-                                    player.rainbow_outline_timer = 0.0
-                                player.combo_green_blue = 0
-                                player.rainbow_safe_combo = 0
+                                if player.invert_timer <= 0:
+                                    player.modify_health(-1)
+                                    if player.rainbow_mode and not player.is_fly_mode:
+                                        player.rainbow_mode = False
+                                        player.score_multiplier = 1
+                                        player.rainbow_outline_timer = 0.0
+                                    player.combo_green_blue = 0
+                                    player.rainbow_safe_combo = 0
                                 p.fading = True  # start 2-second fade countdown
                         elif p.type == "purple":
                             if is_new_landing:
-                                if player.rainbow_mode and not player.is_fly_mode:
-                                    player.rainbow_mode = False
-                                    player.score_multiplier = 1
-                                    player.rainbow_outline_timer = 0.0
-                                player.combo_green_blue = 0
-                                player.rainbow_safe_combo = 0
-                                player.invert_timer = 0.0
-                                player.speed_timer = 0.0
+                                if player.invert_timer <= 0:
+                                    if player.rainbow_mode and not player.is_fly_mode:
+                                        player.rainbow_mode = False
+                                        player.score_multiplier = 1
+                                        player.rainbow_outline_timer = 0.0
+                                    player.combo_green_blue = 0
+                                    player.rainbow_safe_combo = 0
+                                    player.invert_timer = 0.0
+                                    player.speed_timer = 0.0
                             if not p.triggered:
                                 p.triggered = True
                                 p.trigger_timer = 0.0
@@ -1055,7 +1059,8 @@ def main():
                             # Penetrate!
                             player.rect.y += 25
                             if player.current_platform.type == "normal":
-                                player.modify_health(-1)
+                                if player.invert_timer <= 0:
+                                    player.modify_health(-1)
                             player.down_key_timer = 0.0
                             player.current_platform = None
                     else:
@@ -1071,7 +1076,8 @@ def main():
                             if can_start_boost:
                                 player.up_boosting = True
                                 if game_mode == "normal":
-                                    player.modify_health(-2)
+                                    if player.invert_timer <= 0:
+                                        player.modify_health(-2)
                                     player.up_used_this_fall = True
                                 elif game_mode == "fly":
                                     player.score += 3

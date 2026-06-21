@@ -382,10 +382,12 @@ class Player{
     this.hasAchievedSinceDamage = false;
   }
   triggerExtraBonus(){
-    this.invertTimer = 10;
-    if(!this.hasAchievedSinceDamage){
-      this.speedTimer = 10;
-      this.hasAchievedSinceDamage = true;
+    if(this.invertTimer <= 0) {
+      this.invertTimer = 10;
+      if(!this.hasAchievedSinceDamage){
+        this.speedTimer = 10;
+        this.hasAchievedSinceDamage = true;
+      }
     }
   }
   get left()  {return this.x;}        set left(v)  {this.x=v;}
@@ -761,7 +763,7 @@ function updateGame(){
       const isNew=p!==player.lastPlat; player.lastPlat=p;
       if(isNew){player.upUsed=false;player.flyUpCnt=0;}
       if(p.type==='spike'){
-        player.hurt(-1); if(isNew)player.combo=0; player.onSpikeP=true;
+        if(player.invertTimer<=0){player.hurt(-1); if(isNew)player.combo=0;} player.onSpikeP=true;
       } else if(p.type==='heal'){
         if(isNew){player.combo++;player.healLand=0;player.score+=2*player.scoreMult;
           // Rainbow safe combo tracking (normal game mode only)
@@ -771,12 +773,15 @@ function updateGame(){
       } else if(p.type==='fade'){
         if(isNew){
           // White (fade) stair: deduct 1 HP and break rainbow/combo
-          player.hurt(-1);
-          if(player.rainbow&&!player.flyMode){player.rainbow=false;player.scoreMult=1;player.rainbowOutT=0;}
-          player.combo=0;player.rainbowSafeCombo=0;p.fading=true;
+          if(player.invertTimer <= 0) {
+            player.hurt(-1);
+            if(player.rainbow&&!player.flyMode){player.rainbow=false;player.scoreMult=1;player.rainbowOutT=0;}
+            player.combo=0;player.rainbowSafeCombo=0;
+          }
+          p.fading=true;
         }
       } else if(p.type==='purple'){
-        if(isNew){if(player.rainbow&&!player.flyMode){player.rainbow=false;player.scoreMult=1;player.rainbowOutT=0;player.invertTimer=0;player.speedTimer=0;}player.combo=0;player.rainbowSafeCombo=0;}
+        if(isNew){if(player.invertTimer<=0){if(player.rainbow&&!player.flyMode){player.rainbow=false;player.scoreMult=1;player.rainbowOutT=0;player.invertTimer=0;player.speedTimer=0;}player.combo=0;player.rainbowSafeCombo=0;}}
         if(!p.triggered){p.triggered=true;p.trigT=0;}
       } else {
         if(isNew){player.combo++;player.normLand=0;player.score+=1*player.scoreMult;
@@ -793,7 +798,7 @@ function updateGame(){
 
   // Down penetration
   if(player.curPlat&&['normal','heal'].includes(player.curPlat.type)){
-    if(keys.down){player.downT+=1/60;if(player.downT>=.6){player.y+=25;if(player.curPlat.type==='normal')player.hurt(-1);player.downT=0;player.curPlat=null;}}
+    if(keys.down){player.downT+=1/60;if(player.downT>=.6){player.y+=25;if(player.curPlat.type==='normal'){if(player.invertTimer<=0)player.hurt(-1);}player.downT=0;player.curPlat=null;}}
     else player.downT=0;
   } else player.downT=0;
 
@@ -802,7 +807,7 @@ function updateGame(){
     if(!player.curPlat){
       if(!player.upWas){
         const canBoost=gameMode==='fly'||!player.upUsed;
-        if(canBoost){player.upBoosting=true;if(gameMode==='normal'){player.hurt(-2);player.upUsed=true;}
+        if(canBoost){player.upBoosting=true;if(gameMode==='normal'){if(player.invertTimer<=0)player.hurt(-2);player.upUsed=true;}
           else{player.score+=3;player.flyUpCnt++;if(player.flyUpCnt>=3){player.hurt(1);player.flyUpCnt=0;}playBuf(SFX.boost);}}
       }
       if(player.upBoosting){player.upT+=1/60;if(player.upT<=.2)player.velY=-(PLAT_SPEED*3);else player.upBoosting=false;}
