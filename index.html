@@ -377,6 +377,16 @@ class Player{
     this.downT=0; this.upT=0; this.upWas=false; this.upBoosting=false; this.upUsed=true;
     this.healSupp=false;
     this.rainbowSafeCombo=0; // consecutive non-damaging landings while in rainbow mode (normal mode only)
+    this.invertTimer = 0;
+    this.speedTimer = 0;
+    this.hasAchievedSinceDamage = false;
+  }
+  triggerExtraBonus(){
+    this.invertTimer = 10;
+    if(!this.hasAchievedSinceDamage){
+      this.speedTimer = 10;
+      this.hasAchievedSinceDamage = true;
+    }
   }
   get left()  {return this.x;}        set left(v)  {this.x=v;}
   get right() {return this.x+this.w;} set right(v) {this.x=v-this.w;}
@@ -389,9 +399,12 @@ class Player{
   hurt(amt){
     this.hp=Math.max(0,Math.min(this.maxHp,this.hp+amt));
     if(amt<0){
+      this.hasAchievedSinceDamage = false;
       this.healSupp=false; this.flashT=30; this.flashType='DEC';
       playBuf(SFX.damage); this.flyUpCnt=0;
       if(this.rainbow&&!this.flyMode){this.rainbow=false;this.combo=0;this.scoreMult=1;this.rainbowOutT=0;}
+      this.invertTimer = 0;
+      this.speedTimer = 0;
       this.rainbowSafeCombo=0; // damage resets the rainbow safe combo
     } else if(amt>0){
       if(this.flyMode&&this.hp>=this.maxHp)this.healSupp=true;
@@ -406,6 +419,8 @@ class Player{
   }
 
   update(){
+    if(this.invertTimer > 0) this.invertTimer = Math.max(0, this.invertTimer - 1/60);
+    if(this.speedTimer > 0) this.speedTimer = Math.max(0, this.speedTimer - 1/60);
     this.velY=Math.min(this.velY+GRAVITY,MAX_FALL);
     if(this.velY>=0)this.upBoosting=false;
     this.hist.unshift([this.x,this.y]); if(this.hist.length>10)this.hist.pop();
@@ -761,12 +776,12 @@ function updateGame(){
           player.combo=0;player.rainbowSafeCombo=0;p.fading=true;
         }
       } else if(p.type==='purple'){
-        if(isNew){if(player.rainbow&&!player.flyMode){player.rainbow=false;player.scoreMult=1;player.rainbowOutT=0;}player.combo=0;player.rainbowSafeCombo=0;}
+        if(isNew){if(player.rainbow&&!player.flyMode){player.rainbow=false;player.scoreMult=1;player.rainbowOutT=0;player.invertTimer=0;player.speedTimer=0;}player.combo=0;player.rainbowSafeCombo=0;}
         if(!p.triggered){p.triggered=true;p.trigT=0;}
       } else {
         if(isNew){player.combo++;player.normLand=0;player.score+=1*player.scoreMult;
           // Rainbow safe combo tracking (normal game mode only)
-          if(player.rainbow&&!player.flyMode){player.rainbowSafeCombo++;if(player.rainbowSafeCombo>=6){player.score+=18;player.rainbowSafeCombo=0;player.extraT=0;}}
+          if(player.rainbow&&!player.flyMode){player.rainbowSafeCombo++;if(player.rainbowSafeCombo>=6){player.score+=18;player.rainbowSafeCombo=0;player.extraT=0;player.triggerExtraBonus();}}
         }
         if(player.hp<player.maxHp&&p.healed<1){player.normLand++;if(player.normLand>=60){player.normLand=0;player.hurt(1);p.healed++;}}
       }
@@ -857,6 +872,11 @@ function drawScoreUI(){
   const isR=player.rainbow;
   const font=isR?F_SM_RB:F_SM, text=`分數: ${player.score}`;
   
+  const sec = Math.floor(player.invertTimer);
+  const ms = Math.floor((player.invertTimer - sec) * 1000);
+  const timerText = `${String(sec).padStart(2, '0')}秒${String(ms).padStart(3, '0')}`;
+  const timerY = 60 + (isR ? 45 : 30);
+  
   let targetAlpha = 1;
   if(player.extraT < 0.5){
     player.extraT += 1/60;
@@ -865,9 +885,12 @@ function drawScoreUI(){
   
   if(isR){
     player.rainbowOutT+=1/60;
-    drawScoreTxt(text,font,GW-80,60,6,13,Math.min(player.rainbowOutT/.25,1)*targetAlpha,player.flyMode,targetAlpha);
+    const rAlpha = Math.min(player.rainbowOutT/.25,1)*targetAlpha;
+    drawScoreTxt(text,font,GW-80,60,6,13,rAlpha,player.flyMode,targetAlpha);
+    if(player.invertTimer > 0) drawScoreTxt(timerText,font,GW-80,timerY,6,13,rAlpha,player.flyMode,targetAlpha);
   } else {
     drawScoreTxt(text,font,GW-80,60,4,9,targetAlpha,player.flyMode,targetAlpha);
+    if(player.invertTimer > 0) drawScoreTxt(timerText,font,GW-80,timerY,4,9,targetAlpha,player.flyMode,targetAlpha);
   }
 }
 
@@ -898,7 +921,9 @@ function drawTopBarUI(){
 
 function drawFrame(){
   ctx.clearRect(0,0,GW,GH);
+  if(player && player.invertTimer > 0) ctx.filter = 'grayscale(100%)';
   drawBg();
+  if(player && player.invertTimer > 0) ctx.filter = 'none';
 
   if(state==='START'){
     drawTopSpikes(0);
@@ -962,7 +987,8 @@ function loop(ts){
     else if (player.score >= 201) autoSpeedMult = 1.2;
     else if (player.score >= 101) autoSpeedMult = 1.1;
 
-    acc+=dt*(speedMult * autoSpeedMult);
+    let currentSpeed = (player.speedTimer > 0) ? 1.0 : (speedMult * autoSpeedMult);
+    acc+=dt*currentSpeed;
     let steps=0;
     while(acc>=STEP&&steps<4){updateGame();acc-=STEP;steps++;}
   }

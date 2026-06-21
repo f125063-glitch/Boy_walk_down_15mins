@@ -184,8 +184,23 @@ try:
         base_path = os.path.dirname(os.path.abspath(__file__))
     bg_raw = pygame.image.load(os.path.join(base_path, "background_rainbow2.jpg")).convert()
     bg_image = pygame.transform.scale(bg_raw, (WIDTH, HEIGHT))
+    # Precompute grayscale background
+    try:
+        if hasattr(pygame.transform, 'grayscale'):
+            bg_image_inverted = pygame.transform.grayscale(bg_image)
+        else:
+            bg_image_inverted = bg_image.copy()
+            arr = pygame.surfarray.pixels3d(bg_image_inverted)
+            gray = np.dot(arr[..., :3], [0.2989, 0.5870, 0.1140]).astype(np.uint8)
+            arr[..., 0] = gray
+            arr[..., 1] = gray
+            arr[..., 2] = gray
+            del arr
+    except Exception:
+        bg_image_inverted = bg_image.copy()
 except Exception as e:
     bg_image = None
+    bg_image_inverted = None
 
 # Try to load a font that supports Chinese characters, fallback to default
 try:
@@ -240,6 +255,15 @@ class Player:
         self.current_platform = None
         self.heal_suppressed = False  # 飛高高吧模式：血量達200%後壓制回血效果
         self.rainbow_safe_combo = 0   # consecutive non-damaging landings while in rainbow mode (normal game mode)
+        self.invert_timer = 0.0
+        self.speed_timer = 0.0
+        self.has_achieved_since_damage = False
+
+    def trigger_extra_bonus(self):
+        self.invert_timer = 10.0
+        if not self.has_achieved_since_damage:
+            self.speed_timer = 10.0
+            self.has_achieved_since_damage = True
 
     def modify_health(self, amount):
         self.health += amount
@@ -247,17 +271,20 @@ class Player:
         if self.health < 0: self.health = 0
         
         if amount < 0:
+            self.has_achieved_since_damage = False
             self.heal_suppressed = False  # 受傷後重新啟用回血效果
             self.flash_timer = 30
             self.flash_type = "DECREASE"
             sfx_damage.play()
             self.fly_up_count = 0
-            # Damage breaks rainbow mode
+            # Damage breaks rainbow mode and bonus effects
             if self.rainbow_mode and not self.is_fly_mode:
                 self.rainbow_mode = False
                 self.combo_green_blue = 0
                 self.score_multiplier = 1
                 self.rainbow_outline_timer = 0.0
+            self.invert_timer = 0.0
+            self.speed_timer = 0.0
             self.rainbow_safe_combo = 0  # damage resets the rainbow safe combo
         elif amount > 0:
             # 飛高高吧：血量達 max_health（200%）後壓制回血音效與外框閃爍
@@ -303,6 +330,11 @@ class Player:
                 self.up_history.pop()
         else:
             self.up_history.clear()
+
+        if self.invert_timer > 0:
+            self.invert_timer = max(0.0, self.invert_timer - 1.0 / 60.0)
+        if self.speed_timer > 0:
+            self.speed_timer = max(0.0, self.speed_timer - 1.0 / 60.0)
 
         self.rect.y += self.vel_y
 
@@ -744,21 +776,37 @@ def main():
         elif player.score >= 201: auto_speed_mult = 1.2
         elif player.score >= 101: auto_speed_mult = 1.1
 
-        clock.tick(int(FPS * speed_multiplier * auto_speed_mult))
-        screen.fill(WHITE)
-        if bg_image:
-            bg_alpha = 204
-            if player.score >= 401: bg_alpha = 255
-            elif player.score >= 301: bg_alpha = 242
-            elif player.score >= 201: bg_alpha = 229
-            elif player.score >= 101: bg_alpha = 216
-            bg_image.set_alpha(bg_alpha)
-            # Scroll background only on menu screens; freeze during gameplay
-            if state in ["START", "GAME_OVER"]:
-                bg_x = (bg_x - BG_SCROLL_SPEED) % WIDTH
-            blit_x = int(bg_x)
-            screen.blit(bg_image, (blit_x, 0))
-            screen.blit(bg_image, (blit_x - WIDTH, 0))
+        current_speed = 1.0 if player.speed_timer > 0 else (speed_multiplier * auto_speed_mult)
+        clock.tick(int(FPS * current_speed))
+        if player.invert_timer > 0:
+            screen.fill(BLACK)
+            if bg_image_inverted:
+                bg_alpha = 204
+                if player.score >= 401: bg_alpha = 255
+                elif player.score >= 301: bg_alpha = 242
+                elif player.score >= 201: bg_alpha = 229
+                elif player.score >= 101: bg_alpha = 216
+                bg_image_inverted.set_alpha(bg_alpha)
+                if state in ["START", "GAME_OVER"]:
+                    bg_x = (bg_x - BG_SCROLL_SPEED) % WIDTH
+                blit_x = int(bg_x)
+                screen.blit(bg_image_inverted, (blit_x, 0))
+                screen.blit(bg_image_inverted, (blit_x - WIDTH, 0))
+        else:
+            screen.fill(WHITE)
+            if bg_image:
+                bg_alpha = 204
+                if player.score >= 401: bg_alpha = 255
+                elif player.score >= 301: bg_alpha = 242
+                elif player.score >= 201: bg_alpha = 229
+                elif player.score >= 101: bg_alpha = 216
+                bg_image.set_alpha(bg_alpha)
+                # Scroll background only on menu screens; freeze during gameplay
+                if state in ["START", "GAME_OVER"]:
+                    bg_x = (bg_x - BG_SCROLL_SPEED) % WIDTH
+                blit_x = int(bg_x)
+                screen.blit(bg_image, (blit_x, 0))
+                screen.blit(bg_image, (blit_x - WIDTH, 0))
 
         mouse_pos = pygame.mouse.get_pos()
         mouse_clicked = False
@@ -937,6 +985,7 @@ def main():
                                         player.score += 18
                                         player.rainbow_safe_combo = 0
                                         player.extra_score_timer = 0.0
+                                        player.trigger_extra_bonus()
                             if player.health < player.max_health and p.healed_amount < 3:
                                 player.heal_land_counter += 1
                                 if player.heal_land_counter >= 45:
@@ -962,6 +1011,8 @@ def main():
                                     player.rainbow_outline_timer = 0.0
                                 player.combo_green_blue = 0
                                 player.rainbow_safe_combo = 0
+                                player.invert_timer = 0.0
+                                player.speed_timer = 0.0
                             if not p.triggered:
                                 p.triggered = True
                                 p.trigger_timer = 0.0
@@ -978,6 +1029,7 @@ def main():
                                         player.score += 18
                                         player.rainbow_safe_combo = 0
                                         player.extra_score_timer = 0.0
+                                        player.trigger_extra_bonus()
                             if player.health < player.max_health and p.healed_amount < 1:
                                 player.normal_land_counter += 1
                                 if player.normal_land_counter >= 60:
@@ -1146,6 +1198,11 @@ def main():
 
             score_font = font_small_rainbow if player.rainbow_mode else font_small
             score_text = f"分數: {player.score}"
+            timer_sec = int(player.invert_timer)
+            timer_ms = int((player.invert_timer - timer_sec) * 1000)
+            timer_text = f"{timer_sec:02d}秒{timer_ms:03d}"
+            timer_y = 105 if player.rainbow_mode else 90
+            
             if player.rainbow_mode:
                 # 彩虹模式：同預設鋼琴烤漆規則，外框淡入後全顯
                 player.rainbow_outline_timer += 1.0 / 60.0
@@ -1154,12 +1211,22 @@ def main():
                                  WIDTH - 80, 60,
                                  SCORE_RAINBOW_L1, SCORE_RAINBOW_L2,
                                  outline_alpha, player.is_fly_mode, current_alpha)
+                if player.invert_timer > 0:
+                    draw_piano_score(screen, score_font, timer_text,
+                                     WIDTH - 80, timer_y,
+                                     SCORE_RAINBOW_L1, SCORE_RAINBOW_L2,
+                                     outline_alpha, player.is_fly_mode, current_alpha)
             else:
                 # 預設模式：紅色鋼琴烤漆 + 白色L1外框 + 黑色L2外框（2倍寬）
                 draw_piano_score(screen, score_font, score_text,
                                  WIDTH - 80, 60,
                                  SCORE_NORMAL_L1, SCORE_NORMAL_L2,
                                  current_alpha, player.is_fly_mode, current_alpha)
+                if player.invert_timer > 0:
+                    draw_piano_score(screen, score_font, timer_text,
+                                     WIDTH - 80, timer_y,
+                                     SCORE_NORMAL_L1, SCORE_NORMAL_L2,
+                                     current_alpha, player.is_fly_mode, current_alpha)
 
             if state == "PAUSED":
                 s = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
