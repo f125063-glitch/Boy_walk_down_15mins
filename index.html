@@ -280,6 +280,16 @@ function initSounds(){
     let ph=0;
     for(let i=0;i<n;i++){const t=i/sr,f=300+1200*Math.pow(i/n,1.8);ph+=2*Math.PI*f/sr;d[i]=Math.sin(ph)*Math.exp(-t*12)*0.65;}
   },0.15);
+  // 滴答聲：短促的雙擊音（高頻「滴」+ 略低「答」）
+  SFX.tick=mkBuf((d,sr,n)=>{
+    // 「滴」: 1200Hz 前半段
+    const half=Math.floor(n/2);
+    let ph=0;
+    for(let i=0;i<half;i++){const t=i/sr;ph+=2*Math.PI*1200/sr;d[i]=Math.sin(ph)*Math.exp(-t*60)*0.55;}
+    // 「答」: 900Hz 後半段
+    ph=0;
+    for(let i=half;i<n;i++){const t=(i-half)/sr;ph+=2*Math.PI*900/sr;d[i]=Math.sin(ph)*Math.exp(-t*60)*0.40;}
+  },0.08);
 }
 
 /* ═══════════════════════ UTILITIES ═══════════════════════ */
@@ -313,13 +323,15 @@ function drawOutlined(text,font,body,cx,cy,l1w,l2w,c1='#fff',c2='#000',alpha=1,l
 }
 
 /* Piano lacquer score text (red body + gloss) */
-function drawScoreTxt(text,font,cx,cy,l1w,l2w,oA=1,fly=false,bA=1){
-  const bc=fly?'rgb(0,100,0)':'rgb(210,20,20)';
-  const gc=fly?`rgba(140,255,140,${0.35*bA})`:`rgba(255,140,140,${0.35*bA})`;
+// blackMode: 字本體黑色、第二層外框也為黑色（用於額外加分倒數計時）
+function drawScoreTxt(text,font,cx,cy,l1w,l2w,oA=1,fly=false,bA=1,blackMode=false){
+  const bc=blackMode?'rgb(0,0,0)':fly?'rgb(0,100,0)':'rgb(210,20,20)';
+  const gc=blackMode?`rgba(60,60,60,${0.35*bA})`:fly?`rgba(140,255,140,${0.35*bA})`:`rgba(255,140,140,${0.35*bA})`;
+  const outline2=blackMode?'#000':'#000'; // 第二層外框（blackMode 同樣為黑色）
   ctx.save();
   ctx.font=font; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.lineJoin='round';
   ctx.globalAlpha=oA;
-  ctx.strokeStyle='#000'; ctx.lineWidth=l2w; ctx.strokeText(text,cx,cy);
+  ctx.strokeStyle=outline2; ctx.lineWidth=l2w; ctx.strokeText(text,cx,cy);
   ctx.strokeStyle='#fff'; ctx.lineWidth=l1w; ctx.strokeText(text,cx,cy);
   ctx.globalAlpha=bA; ctx.fillStyle=bc; ctx.fillText(text,cx,cy);
   ctx.fillStyle=gc; ctx.fillText(text,cx,cy-1);
@@ -892,10 +904,12 @@ function drawScoreUI(){
     player.rainbowOutT+=1/60;
     const rAlpha = Math.min(player.rainbowOutT/.25,1)*targetAlpha;
     drawScoreTxt(text,font,GW-80,60,6,13,rAlpha,player.flyMode,targetAlpha);
-    if(player.invertTimer > 0) drawScoreTxt(timerText,font,GW-80,timerY,6,13,rAlpha,player.flyMode,targetAlpha);
+    // 計時器：秒數本體和第二層外框皆為黑色
+    if(player.invertTimer > 0) drawScoreTxt(timerText,font,GW-80,timerY,6,13,rAlpha,player.flyMode,targetAlpha,true);
   } else {
     drawScoreTxt(text,font,GW-80,60,4,9,targetAlpha,player.flyMode,targetAlpha);
-    if(player.invertTimer > 0) drawScoreTxt(timerText,font,GW-80,timerY,4,9,targetAlpha,player.flyMode,targetAlpha);
+    // 計時器：秒數本體和第二層外框皆為黑色
+    if(player.invertTimer > 0) drawScoreTxt(timerText,font,GW-80,timerY,4,9,targetAlpha,player.flyMode,targetAlpha,true);
   }
 }
 
@@ -977,6 +991,19 @@ function drawFrame(){
   }
 }
 
+/* ═══════════════════════ TICK SOUND ENGINE ═══════════════════════ */
+let tickAcc = 0; // 累積時間，用於控制滴答節奏
+
+// 根據剩餘時間計算滴答間隔（秒）
+// invertTimer 最大值為 10 秒
+// >5秒：1.0秒/拍；3~5秒：0.6秒/拍；1~3秒：0.35秒/拍；<1秒：0.18秒/拍（急促）
+function getTickInterval(remainSec){
+  if(remainSec > 5) return 1.0;
+  if(remainSec > 3) return 0.6;
+  if(remainSec > 1) return 0.35;
+  return 0.18;
+}
+
 /* ═══════════════════════ MAIN LOOP ═══════════════════════ */
 let lastT=0, acc=0;
 const STEP=1/60;
@@ -997,6 +1024,21 @@ function loop(ts){
     let steps=0;
     while(acc>=STEP&&steps<4){updateGame();acc-=STEP;steps++;}
   }
+
+  // ── 滴答音效控制 ──
+  // 僅在遊戲進行中且 invertTimer 倒數中時播放
+  if(state==='PLAYING' && player && player.invertTimer > 0 && SFX.tick){
+    tickAcc += dt;
+    const interval = getTickInterval(player.invertTimer);
+    if(tickAcc >= interval){
+      tickAcc = tickAcc % interval; // 保持餘數，避免累積漂移
+      playBuf(SFX.tick);
+    }
+  } else {
+    // 倒數結束或停止計數：重置累積，下次重新從頭計時
+    tickAcc = 0;
+  }
+
   drawFrame();
   requestAnimationFrame(loop);
 }
