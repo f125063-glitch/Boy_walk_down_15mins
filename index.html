@@ -378,6 +378,7 @@ function drawTopSpikes(fa=0){
 
 /* ═══════════════════════ PLAYER ═══════════════════════ */
 const F_LG  ="bold 48px 'Microsoft JhengHei','PingFang TC',sans-serif";
+const F_HALF_LG ="bold 24px 'Microsoft JhengHei','PingFang TC',sans-serif";
 const F_MED ="32px 'Microsoft JhengHei','PingFang TC',sans-serif";
 const F_MED_B="bold 32px 'Microsoft JhengHei','PingFang TC',sans-serif";
 const F_SM  ="20px 'Microsoft JhengHei','PingFang TC',sans-serif";
@@ -610,6 +611,7 @@ let state='START', player, platforms=[];
 let frameCount=0, speedMult=1, spikeFlash=0, gameMode='normal', scoreStyleAlt=false;
 let selIdx=0, escCnt=0;
 let btnSY=GH/2-30, btnFY=GH/2+50; // Y-pos for start / fly buttons (shift in GAME_OVER)
+let gameStartTime=0, totalStairs=0, gameRating='有進步';
 
 /* ── Time Limit State ── */
 let pageStartTime=Date.now();
@@ -633,6 +635,7 @@ function resetGame(mode){
 function startGame(mode){
   initSounds(); if(AC?.state==='suspended')AC.resume();
   resetGame(mode); state='PLAYING'; btnSY=GH/2-30; btnFY=GH/2+50; escCnt=0; frameCount=0; scoreStyleAlt=false;
+  gameStartTime=Date.now(); totalStairs=0;
 }
 
 /* ═══════════════════════ INPUT ═══════════════════════ */
@@ -816,7 +819,7 @@ function updateGame(){
         playBufGain(SFX.coin, coinGain);
       }
       const isNew=p!==player.lastPlat; player.lastPlat=p;
-      if(isNew){player.upUsed=false;player.flyUpCnt=0;}
+      if(isNew){player.upUsed=false;player.flyUpCnt=0;totalStairs++;}
       if(p.type==='spike'){
         if(player.invertTimer<=0){player.hurt(-1); if(isNew)player.combo=0;} player.onSpikeP=true;
       } else if(p.type==='heal'){
@@ -913,7 +916,23 @@ function updateGame(){
   else player.hitSpike=false;
 
   // Death
-  if(player.top>GH||player.hp<=0){state='GAME_OVER';btnSY=GH/2+50;btnFY=GH/2+130;playBuf(SFX.gameover);}
+  if(player.top>GH||player.hp<=0){
+    const elapsedSec = (Date.now() - gameStartTime) / 1000;
+    const timeFactor = Math.min(1.0, elapsedSec / 120.0);
+    const speedFactor = (speedMult - 0.5) / 1.5;
+    let composite = (player.score / 400.0) * 43.0 +
+                    (totalStairs / 100.0) * 26.0 +
+                    speedFactor * 15.0 +
+                    (1.0 - timeFactor) * 16.0;
+    composite = Math.max(0.0, Math.min(composite, 100.0));
+    if(composite >= 80) gameRating = "無與倫比";
+    else if(composite >= 60) gameRating = "最優秀";
+    else if(composite >= 40) gameRating = "優秀";
+    else if(composite >= 20) gameRating = "好棒棒";
+    else gameRating = "有進步";
+
+    state='GAME_OVER';btnSY=GH/2+102;btnFY=GH/2+182;playBuf(SFX.gameover);
+  }
 
   if(spikeFlash>0){spikeFlash+=1/60;if(spikeFlash>=.2)spikeFlash=0;}
 }
@@ -1064,6 +1083,7 @@ function drawFrame(){
       scoreOut2 = '#8B0000';
     }
     drawOutlined(`獲得分數: ${player.score}`,F_LG,scoreBody,GW/2,GH/2,8,14,scoreOut1,scoreOut2,1);
+    drawOutlined(`獲得評等: ${gameRating}`,F_HALF_LG,scoreBody,GW/2,GH/2+45,4,7,scoreOut1,scoreOut2,1);
 
     if(mInR([GW/2-80,btnSY,160,60]))selIdx=0; if(mInR([GW/2-80,btnFY,160,60]))selIdx=1;
     drawBtn(GW/2-80,btnSY,160,60,[255,120,0],'重新開始',selIdx===0?F_MED_B:F_MED,'#fff',15);

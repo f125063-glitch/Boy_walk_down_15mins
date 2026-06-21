@@ -163,6 +163,8 @@ RAINBOW_OUTLINE_OFFSETS = [(dx, dy) for dx in range(-4, 5) for dy in range(-4, 5
 SCORE_L1_OFFSETS = [(dx, dy) for dx in range(-4, 5) for dy in range(-4, 5) if 0 < dx*dx + dy*dy <= 20]
 SCORE_L2_OFFSETS = [(dx, dy) for dx in range(-7, 8) for dy in range(-7, 8) if 0 < dx*dx + dy*dy <= 55]
 SCORE_L3_OFFSETS = [(dx, dy) for dx in range(-11, 12) for dy in range(-11, 12) if 0 < dx*dx + dy*dy <= 125]
+HALF_SCORE_L1_OFFSETS = [(dx, dy) for dx in range(-2, 3) for dy in range(-2, 3) if 0 < dx*dx + dy*dy <= 5]
+HALF_SCORE_L2_OFFSETS = [(dx, dy) for dx in range(-4, 5) for dy in range(-4, 5) if 0 < dx*dx + dy*dy <= 14]
 
 # Score text piano lacquer outline layers:
 # Normal mode  — L1 white ~2px, L2 black ~4px (2× L1)
@@ -206,6 +208,7 @@ except Exception as e:
 try:
     font_large = pygame.font.SysFont('microsoftjhenghei', 48)
     font_large_bold = pygame.font.SysFont('microsoftjhenghei', 48, bold=True)
+    font_half_large_bold = pygame.font.SysFont('microsoftjhenghei', 24, bold=True)
     font_medium = pygame.font.SysFont('microsoftjhenghei', 32)
     font_medium_bold = pygame.font.SysFont('microsoftjhenghei', 32, bold=True)
     font_small = pygame.font.SysFont('microsoftjhenghei', 20)
@@ -214,6 +217,8 @@ except:
     font_large = pygame.font.Font(None, 64)
     font_large_bold = pygame.font.Font(None, 64)
     font_large_bold.set_bold(True)
+    font_half_large_bold = pygame.font.Font(None, 32)
+    font_half_large_bold.set_bold(True)
     font_medium = pygame.font.Font(None, 48)
     font_medium_bold = pygame.font.Font(None, 48)
     font_medium_bold.set_bold(True)
@@ -757,6 +762,9 @@ def main():
     selected_menu_index = 0
     down_key_escape_count = 0  # counter for 6× consecutive down key to return to START
     score_style_alt = False  # True when any speed button pressed during GAME_OVER
+    game_start_time = None   # pygame.time.get_ticks() when PLAYING begins
+    total_stairs_stepped = 0  # number of distinct stair landings in current game
+    game_rating = "有進步"    # final rating shown on GAME_OVER screen
 
     # UI Buttons
     btn_start = pygame.Rect(WIDTH // 2 - 80, HEIGHT // 2 - 30, 160, 60)
@@ -866,6 +874,8 @@ def main():
                         game_mode = "normal" if selected_menu_index == 0 else "fly"
                         player, platforms = reset_game(game_mode)
                         score_style_alt = False
+                        game_start_time = pygame.time.get_ticks()
+                        total_stairs_stepped = 0
                         btn_start.y = HEIGHT // 2 - 30
                         btn_fly.y = HEIGHT // 2 + 50
 
@@ -900,6 +910,8 @@ def main():
                 state = "PLAYING"
                 game_mode = "normal"
                 player, platforms = reset_game("normal")
+                game_start_time = pygame.time.get_ticks()
+                total_stairs_stepped = 0
 
             # Fly Button (3D) — unlimited up-boost, no HP cost
             fly_pressed = btn_fly.collidepoint(mouse_pos) and mouse_clicked
@@ -911,6 +923,8 @@ def main():
                 state = "PLAYING"
                 game_mode = "fly"
                 player, platforms = reset_game("fly")
+                game_start_time = pygame.time.get_ticks()
+                total_stairs_stepped = 0
 
         elif state == "PLAYING" or state == "PAUSED":
             if state == "PLAYING":
@@ -964,6 +978,7 @@ def main():
                         is_new_landing = (p is not player.last_landed_platform)
                         player.last_landed_platform = p
                         if is_new_landing:
+                            total_stairs_stepped += 1
                             player.up_used_this_fall = False  # restore 1 up-boost for next fall
                             player.fly_up_count = 0
                         if p.type == "spike":
@@ -1115,6 +1130,27 @@ def main():
 
                 # Death condition
                 if player.rect.top > HEIGHT or player.health <= 0:
+                    # --- Compute final rating ---
+                    elapsed_sec = (pygame.time.get_ticks() - game_start_time) / 1000.0 if game_start_time else 1.0
+                    # Composite score: score(43) + stairs(26) + speed(15) - time_penalty(16) = 100 max
+                    # time_factor: 0 at 0s → 1 at 120s (capped), inverted → time contribution decreases with longer play
+                    time_factor = min(1.0, elapsed_sec / 120.0)           # 0→1 over 2 minutes
+                    speed_factor = (speed_multiplier - 0.5) / 1.5         # 0.5×→0, 2.0×→1 (proportional)
+                    composite = (player.score / 400.0) * 43.0 \
+                               + (total_stairs_stepped / 100.0) * 26.0 \
+                               + speed_factor * 15.0 \
+                               + (1.0 - time_factor) * 16.0
+                    composite = max(0.0, min(composite, 100.0))
+                    if composite >= 80:
+                        game_rating = "無與倫比"
+                    elif composite >= 60:
+                        game_rating = "最優秀"
+                    elif composite >= 40:
+                        game_rating = "優秀"
+                    elif composite >= 20:
+                        game_rating = "好棒棒"
+                    else:
+                        game_rating = "有進步"
                     state = "GAME_OVER"
                     sfx_gameover.play()
 
@@ -1241,8 +1277,8 @@ def main():
                 draw_text("遊戲暫停", font_large, WHITE, screen, WIDTH // 2, HEIGHT // 2)
 
         elif state == "GAME_OVER":
-            btn_start.y = HEIGHT // 2 + 50
-            btn_fly.y = HEIGHT // 2 + 130
+            btn_start.y = HEIGHT // 2 + 102
+            btn_fly.y = HEIGHT // 2 + 182
 
             if btn_start.collidepoint(mouse_pos):
                 selected_menu_index = 0
@@ -1264,7 +1300,8 @@ def main():
                 score_out1 = WHITE
                 score_out2 = (139, 0, 0)
             draw_outlined_text(f"獲得分數: {player.score}", font_large_bold, score_body, screen, WIDTH // 2, HEIGHT // 2, SCORE_L1_OFFSETS, SCORE_L2_OFFSETS, outline_color1=score_out1, outline_color2=score_out2)
-            
+            draw_outlined_text(f"獲得評等: {game_rating}", font_half_large_bold, score_body, screen, WIDTH // 2, HEIGHT // 2 + 45, HALF_SCORE_L1_OFFSETS, HALF_SCORE_L2_OFFSETS, outline_color1=score_out1, outline_color2=score_out2)
+
             pressed = btn_start.collidepoint(mouse_pos) and mouse_clicked
             color = KIDS_ORANGE
             current_font = font_medium_bold if selected_menu_index == 0 else font_medium
@@ -1276,6 +1313,8 @@ def main():
                 game_mode = "normal"
                 player, platforms = reset_game("normal")
                 score_style_alt = False
+                game_start_time = pygame.time.get_ticks()
+                total_stairs_stepped = 0
                 btn_start.y = HEIGHT // 2 - 30
                 btn_fly.y = HEIGHT // 2 + 50
                 mouse_clicked = False  # consume click
@@ -1291,6 +1330,8 @@ def main():
                 game_mode = "fly"
                 player, platforms = reset_game("fly")
                 score_style_alt = False
+                game_start_time = pygame.time.get_ticks()
+                total_stairs_stepped = 0
                 btn_start.y = HEIGHT // 2 - 30
                 btn_fly.y = HEIGHT // 2 + 50
                 mouse_clicked = False  # consume click
