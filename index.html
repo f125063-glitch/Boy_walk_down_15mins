@@ -930,7 +930,7 @@ function updateGame(){
     else if(composite >= 20) gameRating = "比個讚";
     else gameRating = "有進步";
     
-    if(player.score === 0) gameRating = "有進步";
+    if(player.score === 0) gameRating = "放鬆一下,再試一次";
 
     state='GAME_OVER';btnSY=GH/2+102;btnFY=GH/2+182;playBuf(SFX.gameover);
   }

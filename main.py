@@ -1150,7 +1150,7 @@ def main():
                         game_rating = "有進步"
                         
                     if player.score == 0:
-                        game_rating = "有進步"
+                        game_rating = "放鬆一下,再試一次"
                     state = "GAME_OVER"
                     sfx_gameover.play()
 
