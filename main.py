@@ -1131,39 +1131,26 @@ def main():
                 # Death condition
                 if player.rect.top > HEIGHT or player.health <= 0:
                     # --- Compute final rating ---
-                    elapsed_sec = (pygame.time.get_ticks() - game_start_time) / 1000.0 if game_start_time else 1.0
-                    # Composite score: score(43) + stairs(26) + speed(15) - time_penalty(16) = 100 max
-                    # time_factor: 0 at 0s → 1 at 120s (capped), inverted → time contribution decreases with longer play
-                    time_factor = min(1.0, elapsed_sec / 120.0)           # 0→1 over 2 minutes
+                    # Composite score: score(50) + stairs(30) + speed(20) = 100 max
                     speed_factor = (speed_multiplier - 0.5) / 1.5         # 0.5×→0, 2.0×→1 (proportional)
-                    composite = (player.score / 400.0) * 43.0 \
-                               + (total_stairs_stepped / 100.0) * 26.0 \
-                               + speed_factor * 15.0 \
-                               + (1.0 - time_factor) * 16.0
+                    composite = (player.score / 400.0) * 50.0 \
+                               + (total_stairs_stepped / 100.0) * 30.0 \
+                               + speed_factor * 20.0
                     composite = max(0.0, min(composite, 100.0))
-                    if elapsed_sec < 10.0:
-                        rating_level = min(5, int(elapsed_sec) // 2 + 1)
-                        if rating_level == 5:
-                            game_rating = "最優秀"
-                        elif rating_level == 4:
-                            game_rating = "非常棒"
-                        elif rating_level == 3:
-                            game_rating = "很優秀"
-                        elif rating_level == 2:
-                            game_rating = "比個讚"
-                        else:
-                            game_rating = "有進步"
+                    
+                    if composite >= 80:
+                        game_rating = "最優秀"
+                    elif composite >= 60:
+                        game_rating = "非常棒"
+                    elif composite >= 40:
+                        game_rating = "很優秀"
+                    elif composite >= 20:
+                        game_rating = "比個讚"
                     else:
-                        if composite >= 80:
-                            game_rating = "最優秀"
-                        elif composite >= 60:
-                            game_rating = "非常棒"
-                        elif composite >= 40:
-                            game_rating = "很優秀"
-                        elif composite >= 20:
-                            game_rating = "比個讚"
-                        else:
-                            game_rating = "有進步"
+                        game_rating = "有進步"
+                        
+                    if player.score == 0:
+                        game_rating = "有進步"
                     state = "GAME_OVER"
                     sfx_gameover.play()
 

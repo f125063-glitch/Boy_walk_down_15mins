@@ -918,27 +918,19 @@ function updateGame(){
   // Death
   if(player.top>GH||player.hp<=0){
     const elapsedSec = (Date.now() - gameStartTime) / 1000;
-    const timeFactor = Math.min(1.0, elapsedSec / 120.0);
     const speedFactor = (speedMult - 0.5) / 1.5;
-    let composite = (player.score / 400.0) * 43.0 +
-                    (totalStairs / 100.0) * 26.0 +
-                    speedFactor * 15.0 +
-                    (1.0 - timeFactor) * 16.0;
+    let composite = (player.score / 400.0) * 50.0 +
+                    (totalStairs / 100.0) * 30.0 +
+                    speedFactor * 20.0;
     composite = Math.max(0.0, Math.min(composite, 100.0));
-    if(elapsedSec < 10.0) {
-      const ratingLevel = Math.min(5, Math.floor(elapsedSec / 2) + 1);
-      if(ratingLevel === 5) gameRating = "最優秀";
-      else if(ratingLevel === 4) gameRating = "非常棒";
-      else if(ratingLevel === 3) gameRating = "很優秀";
-      else if(ratingLevel === 2) gameRating = "比個讚";
-      else gameRating = "有進步";
-    } else {
-      if(composite >= 80) gameRating = "最優秀";
-      else if(composite >= 60) gameRating = "非常棒";
-      else if(composite >= 40) gameRating = "很優秀";
-      else if(composite >= 20) gameRating = "比個讚";
-      else gameRating = "有進步";
-    }
+    
+    if(composite >= 80) gameRating = "最優秀";
+    else if(composite >= 60) gameRating = "非常棒";
+    else if(composite >= 40) gameRating = "很優秀";
+    else if(composite >= 20) gameRating = "比個讚";
+    else gameRating = "有進步";
+    
+    if(player.score === 0) gameRating = "有進步";
 
     state='GAME_OVER';btnSY=GH/2+102;btnFY=GH/2+182;playBuf(SFX.gameover);
   }
