@@ -760,11 +760,11 @@ def main():
     spike_flash_timer = 0.0  # timer for spikes white flash effect
     game_mode = "normal"  # "normal" = standard rules, "fly" = 飛高高吧 (unlimited up, no HP cost)
     selected_menu_index = 0
-    down_key_escape_count = 0  # counter for 6× consecutive down key to return to START
+    up_key_escape_count = 0  # counter for 5x consecutive up key to return to START
     score_style_alt = False  # True when any speed button pressed during GAME_OVER
     game_start_time = None   # pygame.time.get_ticks() when PLAYING begins
     total_stairs_stepped = 0  # number of distinct stair landings in current game
-    game_rating = "有進步"    # final rating shown on GAME_OVER screen
+    game_rating = "新手上路"    # final rating shown on GAME_OVER screen
 
     # UI Buttons
     btn_start = pygame.Rect(WIDTH // 2 - 80, HEIGHT // 2 - 30, 160, 60)
@@ -831,20 +831,20 @@ def main():
                     if state in ["START", "GAME_OVER"]:
                         selected_menu_index = (selected_menu_index + 1) % 2
                     elif state in ["PLAYING", "PAUSED"]:
-                        down_key_escape_count += 1
-                        if down_key_escape_count >= 6:
-                            down_key_escape_count = 0
-                            state = "START"
-                            speed_multiplier = 1.0
-                            selected_menu_index = 0
+                        up_key_escape_count = 0
                 elif event.key == pygame.K_UP:
                     if state in ["START", "GAME_OVER"]:
                         selected_menu_index = (selected_menu_index - 1) % 2
                     if state in ["PLAYING", "PAUSED"]:
-                        down_key_escape_count = 0
+                        up_key_escape_count += 1
+                        if up_key_escape_count >= 5:
+                            up_key_escape_count = 0
+                            state = "START"
+                            speed_multiplier = 1.0
+                            selected_menu_index = 0
                 elif event.key == pygame.K_LEFT:
                     if state in ["PLAYING", "PAUSED"]:
-                        down_key_escape_count = 0
+                        up_key_escape_count = 0
                     if state in ["START", "GAME_OVER", "PAUSED"]:
                         speeds = [0.5, 1.0, 1.5, 2.0]
                         try:
@@ -857,7 +857,7 @@ def main():
                             score_style_alt = True
                 elif event.key == pygame.K_RIGHT:
                     if state in ["PLAYING", "PAUSED"]:
-                        down_key_escape_count = 0
+                        up_key_escape_count = 0
                     if state in ["START", "GAME_OVER", "PAUSED"]:
                         speeds = [0.5, 1.0, 1.5, 2.0]
                         try:
@@ -1141,16 +1141,29 @@ def main():
                                + speed_factor * 15.0 \
                                + (1.0 - time_factor) * 16.0
                     composite = max(0.0, min(composite, 100.0))
-                    if composite >= 80:
-                        game_rating = "無與倫比"
-                    elif composite >= 60:
-                        game_rating = "最優秀"
-                    elif composite >= 40:
-                        game_rating = "優秀"
-                    elif composite >= 20:
-                        game_rating = "好棒棒"
+                    if elapsed_sec < 10.0:
+                        rating_level = min(5, int(elapsed_sec) // 2 + 1)
+                        if rating_level == 5:
+                            game_rating = "最優秀"
+                        elif rating_level == 4:
+                            game_rating = "非常棒"
+                        elif rating_level == 3:
+                            game_rating = "很優秀"
+                        elif rating_level == 2:
+                            game_rating = "比個讚"
+                        else:
+                            game_rating = "有進步"
                     else:
-                        game_rating = "有進步"
+                        if composite >= 80:
+                            game_rating = "最優秀"
+                        elif composite >= 60:
+                            game_rating = "非常棒"
+                        elif composite >= 40:
+                            game_rating = "很優秀"
+                        elif composite >= 20:
+                            game_rating = "比個讚"
+                        else:
+                            game_rating = "有進步"
                     state = "GAME_OVER"
                     sfx_gameover.play()
 

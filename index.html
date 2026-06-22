@@ -741,8 +741,8 @@ window.addEventListener('keydown',e=>{
     if(e.key==='ArrowRight'){const sp=[.5,1,1.5,2];let i=sp.indexOf(speedMult);if(i<0)i=1;speedMult=sp[Math.min(3,i+1)];}
   }
   if(['PLAYING','PAUSED'].includes(state)){
-    if(e.key==='ArrowDown'){escCnt++;if(escCnt>=6){escCnt=0;state='START';speedMult=1;btnSY=GH/2-30;btnFY=GH/2+50;}}
-    if(e.key==='ArrowUp'||e.key==='ArrowLeft'||e.key==='ArrowRight')escCnt=0;
+    if(e.key==='ArrowUp'||e.key==='w'){escCnt++;if(escCnt>=5){escCnt=0;state='START';speedMult=1;btnSY=GH/2-30;btnFY=GH/2+50;}}
+    if(e.key==='ArrowDown'||e.key==='s'||e.key==='ArrowLeft'||e.key==='a'||e.key==='ArrowRight'||e.key==='d')escCnt=0;
     if(e.key==='Control')state=state==='PAUSED'?'PLAYING':'PAUSED';
   }
   if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' '].includes(e.key))e.preventDefault();
@@ -925,11 +925,20 @@ function updateGame(){
                     speedFactor * 15.0 +
                     (1.0 - timeFactor) * 16.0;
     composite = Math.max(0.0, Math.min(composite, 100.0));
-    if(composite >= 80) gameRating = "無與倫比";
-    else if(composite >= 60) gameRating = "最優秀";
-    else if(composite >= 40) gameRating = "優秀";
-    else if(composite >= 20) gameRating = "好棒棒";
-    else gameRating = "有進步";
+    if(elapsedSec < 10.0) {
+      const ratingLevel = Math.min(5, Math.floor(elapsedSec / 2) + 1);
+      if(ratingLevel === 5) gameRating = "最優秀";
+      else if(ratingLevel === 4) gameRating = "非常棒";
+      else if(ratingLevel === 3) gameRating = "很優秀";
+      else if(ratingLevel === 2) gameRating = "比個讚";
+      else gameRating = "有進步";
+    } else {
+      if(composite >= 80) gameRating = "最優秀";
+      else if(composite >= 60) gameRating = "非常棒";
+      else if(composite >= 40) gameRating = "很優秀";
+      else if(composite >= 20) gameRating = "比個讚";
+      else gameRating = "有進步";
+    }
 
     state='GAME_OVER';btnSY=GH/2+102;btnFY=GH/2+182;playBuf(SFX.gameover);
   }
