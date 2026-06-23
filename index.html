@@ -242,7 +242,7 @@ let bgImg=null, bgX=0;
 const _bi=new Image();
 _bi.onload=()=>{ bgImg=_bi; };
 _bi.onerror=()=>{ bgImg=null; };
-_bi.src='./background_rainbow2.jpg';
+_bi.src='./GPT_background_rainbow0.png';
 const BG_SPEED=0.5;
 
 /* ═══════════════════════ AUDIO ═══════════════════════ */
@@ -330,6 +330,132 @@ function drawOutlined(text,font,body,cx,cy,l1w,l2w,c1='#fff',c2='#000',alpha=1,l
   ctx.globalAlpha=alpha; ctx.fillText(text,cx,cy); ctx.restore();
 }
 
+/* ── Star Rating Display ── */
+// 在畫布上以深黃色立體星星（含白光閃爍）顯示評等，最高5顆
+function drawStarRating(cx, cy, rating, alpha=1) {
+  const TOTAL = 5;
+  const R = 20;          // 星星外圍半徑
+  const r = 9;           // 星星內圈半徑
+  const gap = 52;        // 星星間距
+  const startX = cx - ((TOTAL - 1) * gap) / 2;
+  const pulse = 0.55 + 0.45 * Math.abs(Math.sin(frameCount * 0.06)); // 0.55~1.0 脈衝
+
+  // ── 星形路徑輔助 ──
+  function starPath(sx, sy, outerR, innerR) {
+    ctx.beginPath();
+    for (let p = 0; p < 10; p++) {
+      const angle = (Math.PI / 5) * p - Math.PI / 2;
+      const rad = (p % 2 === 0) ? outerR : innerR;
+      const px = sx + Math.cos(angle) * rad;
+      const py = sy + Math.sin(angle) * rad;
+      p === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+  }
+
+  for (let i = 0; i < TOTAL; i++) {
+    const sx = startX + i * gap;
+    const active = (i < rating);
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+
+    if (active) {
+      /* ①  外部輝光（脈衝閃爍） */
+      const glowR = R + 10;
+      const grd = ctx.createRadialGradient(sx, cy, R * 0.2, sx, cy, glowR * 1.8);
+      grd.addColorStop(0,    `rgba(255,255,180,${0.8  * pulse})`);
+      grd.addColorStop(0.35, `rgba(255,220,80,${0.45 * pulse})`);
+      grd.addColorStop(1,    'rgba(255,200,0,0)');
+      ctx.fillStyle = grd;
+      ctx.beginPath();
+      ctx.arc(sx, cy, glowR * 1.8, 0, Math.PI * 2);
+      ctx.fill();
+
+      /* ②  暗色落影（立體感） */
+      ctx.shadowColor   = 'rgba(80,40,0,0.75)';
+      ctx.shadowBlur    = 6;
+      ctx.shadowOffsetX = 2;
+      ctx.shadowOffsetY = 3;
+      starPath(sx, cy, R, r);
+      ctx.fillStyle = '#7a4800';
+      ctx.fill();
+      ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
+      ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
+
+      /* ③  主體漸層（上亮下暗，垂直方向模擬球面光） */
+      starPath(sx, cy, R, r);
+      const bodyGr = ctx.createLinearGradient(sx, cy - R, sx, cy + R);
+      bodyGr.addColorStop(0,    '#FFF176');  // 頂部亮黃
+      bodyGr.addColorStop(0.28, '#FFD700');  // 金黃
+      bodyGr.addColorStop(0.65, '#C89000');  // 中深
+      bodyGr.addColorStop(1,    '#7A5000');  // 底部暗褐
+      ctx.fillStyle = bodyGr;
+      ctx.fill();
+
+      /* ④  側邊高光（從左上到右下的斜向漸層，模擬 rim light） */
+      starPath(sx, cy, R, r);
+      const rimGr = ctx.createLinearGradient(sx - R, cy - R, sx + R, cy + R);
+      rimGr.addColorStop(0,   'rgba(255,255,220,0.55)');
+      rimGr.addColorStop(0.4, 'rgba(255,220,80,0.15)');
+      rimGr.addColorStop(1,   'rgba(100,60,0,0.0)');
+      ctx.fillStyle = rimGr;
+      ctx.fill();
+
+      /* ⑤  深色輪廓線 */
+      starPath(sx, cy, R, r);
+      ctx.strokeStyle = '#6B4200';
+      ctx.lineWidth   = 1.8;
+      ctx.lineJoin    = 'round';
+      ctx.stroke();
+
+      /* ⑥  頂部小圓形鏡面反光（specular glint） */
+      const specX = sx - R * 0.22;
+      const specY = cy - R * 0.42;
+      const specGr = ctx.createRadialGradient(specX, specY, 0, specX, specY, R * 0.45);
+      specGr.addColorStop(0,   `rgba(255,255,255,${0.82 * pulse})`);
+      specGr.addColorStop(0.5, `rgba(255,255,200,${0.25 * pulse})`);
+      specGr.addColorStop(1,   'rgba(255,255,255,0)');
+      // 剪裁至星形內部
+      ctx.save();
+      starPath(sx, cy, R, r);
+      ctx.clip();
+      ctx.fillStyle = specGr;
+      ctx.beginPath();
+      ctx.arc(specX, specY, R * 0.45, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+    } else {
+      /* ──  鐵灰色（未激活）同樣做輕微立體感 ── */
+      /* 落影 */
+      ctx.shadowColor = 'rgba(0,0,0,0.4)';
+      ctx.shadowBlur = 4; ctx.shadowOffsetX = 1; ctx.shadowOffsetY = 2;
+      starPath(sx, cy, R, r);
+      ctx.fillStyle = '#333';
+      ctx.fill();
+      ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
+      ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
+      /* 主體 */
+      starPath(sx, cy, R, r);
+      const grayGr = ctx.createLinearGradient(sx, cy - R, sx, cy + R);
+      grayGr.addColorStop(0,   '#888');
+      grayGr.addColorStop(0.5, '#555');
+      grayGr.addColorStop(1,   '#2a2a2a');
+      ctx.fillStyle = grayGr;
+      ctx.fill();
+      /* 輪廓 */
+      starPath(sx, cy, R, r);
+      ctx.strokeStyle = '#222';
+      ctx.lineWidth = 1.4;
+      ctx.lineJoin = 'round';
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+}
+
 /* Piano lacquer score text (red body + gloss) */
 // blackMode: 字本體黑色、第二層外框也為黑色（用於額外加分倒數計時）
 function drawScoreTxt(text,font,cx,cy,l1w,l2w,oA=1,fly=false,bA=1,blackMode=false){
@@ -396,6 +522,7 @@ class Player{
     this.hitSpike=false; this.onSpikeP=false;
     this.lastPlat=null; this.curPlat=null;
     this.downT=0; this.upT=0; this.upWas=false; this.upBoosting=false; this.upUsed=true;
+    this.firstFallJumped=false; // 第一次離梯下落時允許免費空中跳躍
     this.healSupp=false;
     this.rainbowSafeCombo=0; // consecutive non-damaging landings while in rainbow mode (normal mode only)
     this.invertTimer = 0;
@@ -611,7 +738,7 @@ let state='START', player, platforms=[];
 let frameCount=0, speedMult=1, spikeFlash=0, gameMode='normal', scoreStyleAlt=false;
 let selIdx=0, escCnt=0;
 let btnSY=GH/2-30, btnFY=GH/2+50; // Y-pos for start / fly buttons (shift in GAME_OVER)
-let gameStartTime=0, totalStairs=0, gameRating='有進步';
+let gameStartTime=0, totalStairs=0, gameRating=1;
 
 /* ── Time Limit State ── */
 let pageStartTime=Date.now();
@@ -902,9 +1029,24 @@ function updateGame(){
   if(keys.up){
     if(!player.curPlat){
       if(!player.upWas){
-        const canBoost=gameMode==='fly'||!player.upUsed;
-        if(canBoost){player.upBoosting=true;if(gameMode==='normal'){if(player.invertTimer<=0)player.hurt(-2);player.upUsed=true;}
-          else{player.score+=3;player.flyUpCnt++;if(player.flyUpCnt>=3){player.hurt(1);player.flyUpCnt=0;}playBuf(SFX.boost);}}
+        // 第一次離梯下落：允許空中跳躍一次（扣血2格＋音效，與一般空跳相同）
+        const firstFallFree = !player.firstFallJumped && player.upUsed && gameMode==='normal';
+        const canBoost = gameMode==='fly' || !player.upUsed || firstFallFree;
+        if(canBoost){
+          player.upBoosting=true;
+          if(gameMode==='normal'){
+            if(firstFallFree){
+              player.firstFallJumped=true; // 標記已使用本局首跳機會
+              if(player.invertTimer<=0)player.hurt(-2); // 扣血2格＋觸發扣血音效
+              player.upUsed=true;
+            } else {
+              if(player.invertTimer<=0)player.hurt(-2);
+              player.upUsed=true;
+            }
+          } else {
+            player.score+=3;player.flyUpCnt++;if(player.flyUpCnt>=3){player.hurt(1);player.flyUpCnt=0;}playBuf(SFX.boost);
+          }
+        }
       }
       if(player.upBoosting){player.upT+=1/60;if(player.upT<=.2)player.velY=-(PLAT_SPEED*3);else player.upBoosting=false;}
     } else{player.upT=0;player.upBoosting=false;}
@@ -924,15 +1066,15 @@ function updateGame(){
                     speedFactor * 20.0;
     composite = Math.max(0.0, Math.min(composite, 100.0));
     
-    if(composite >= 80) gameRating = "最優秀";
-    else if(composite >= 60) gameRating = "非常棒";
-    else if(composite >= 40) gameRating = "很優秀";
-    else if(composite >= 20) gameRating = "比個讚";
-    else gameRating = "有進步";
+    if(composite >= 80) gameRating = 5;
+    else if(composite >= 60) gameRating = 4;
+    else if(composite >= 40) gameRating = 3;
+    else if(composite >= 20) gameRating = 2;
+    else gameRating = 1;
     
-    if(player.score === 0) gameRating = "放鬆一下,再試一次";
+    if(player.score === 0) gameRating = 1;
 
-    state='GAME_OVER';btnSY=GH/2+102;btnFY=GH/2+182;playBuf(SFX.gameover);
+    state='GAME_OVER';btnSY=GH/2+140;btnFY=GH/2+215;playBuf(SFX.gameover);
   }
 
   if(spikeFlash>0){spikeFlash+=1/60;if(spikeFlash>=.2)spikeFlash=0;}
@@ -1084,7 +1226,11 @@ function drawFrame(){
       scoreOut2 = '#8B0000';
     }
     drawOutlined(`獲得分數: ${player.score}`,F_LG,scoreBody,GW/2,GH/2,8,14,scoreOut1,scoreOut2,1);
-    drawOutlined(`獲得評等: ${gameRating}`,F_HALF_LG,scoreBody,GW/2,GH/2+45,4,7,scoreOut1,scoreOut2,1);
+    if (player.score === 0) {
+      drawOutlined(`放鬆一下, 加油!`,F_HALF_LG,scoreBody,GW/2,GH/2+60,4,7,scoreOut1,scoreOut2,1);
+    } else {
+      drawStarRating(GW/2, GH/2+60, gameRating, 1);
+    }
 
     if(mInR([GW/2-80,btnSY,160,60]))selIdx=0; if(mInR([GW/2-80,btnFY,160,60]))selIdx=1;
     drawBtn(GW/2-80,btnSY,160,60,[255,120,0],'重新開始',selIdx===0?F_MED_B:F_MED,'#fff',15);
