@@ -577,8 +577,11 @@ def draw_3d_button(surface, rect, base_color, text, font, text_color=BLACK,
     shadow_offset = 0 if pressed else 4
     highlight_offset = 0 if pressed else 2
 
+    is_grad = isinstance(base_color, (list, tuple)) and len(base_color) > 1 and isinstance(base_color[0], (list, tuple))
+    primary_color = base_color[0] if is_grad else base_color
+
     # Shadow layer (darker tone, offset down-right)
-    shadow_color = tuple(max(0, c - 60) for c in base_color)
+    shadow_color = tuple(max(0, c - 60) for c in (base_color[-1] if is_grad else base_color))
     shadow_rect = rect.move(shadow_offset, shadow_offset)
     pygame.draw.rect(surface, shadow_color, shadow_rect, border_radius=border_radius)
 
@@ -586,10 +589,33 @@ def draw_3d_button(surface, rect, base_color, text, font, text_color=BLACK,
     face_rect = rect.move(0, 0) if pressed else rect.inflate(0, 0)
     if pressed:
         face_rect = rect.move(2, 2)
-    pygame.draw.rect(surface, base_color, face_rect, border_radius=border_radius)
+        
+    if is_grad:
+        grad_surf = pygame.Surface((face_rect.width, face_rect.height), pygame.SRCALPHA)
+        num_colors = len(base_color)
+        for y in range(face_rect.height):
+            ratio = y / max(1, face_rect.height - 1)
+            segment = int(ratio * (num_colors - 1))
+            if segment >= num_colors - 1:
+                segment = num_colors - 2
+                segment_ratio = 1.0
+            else:
+                segment_ratio = (ratio - segment / (num_colors - 1)) * (num_colors - 1)
+            c1 = base_color[segment]
+            c2 = base_color[segment + 1]
+            r = int(c1[0] * (1 - segment_ratio) + c2[0] * segment_ratio)
+            g = int(c1[1] * (1 - segment_ratio) + c2[1] * segment_ratio)
+            b = int(c1[2] * (1 - segment_ratio) + c2[2] * segment_ratio)
+            pygame.draw.line(grad_surf, (r, g, b), (0, y), (face_rect.width, y))
+        mask_surf = pygame.Surface((face_rect.width, face_rect.height), pygame.SRCALPHA)
+        pygame.draw.rect(mask_surf, (255, 255, 255, 255), mask_surf.get_rect(), border_radius=border_radius)
+        grad_surf.blit(mask_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
+        surface.blit(grad_surf, face_rect)
+    else:
+        pygame.draw.rect(surface, base_color, face_rect, border_radius=border_radius)
 
     # Highlight (top-left brighter strip)
-    highlight_color = tuple(min(255, c + 60) for c in base_color)
+    highlight_color = tuple(min(255, c + 60) for c in primary_color)
     hl_rect = pygame.Rect(face_rect.x + 3, face_rect.y + 3, face_rect.width - 6, max(1, face_rect.height // 3))
     hl_surf = pygame.Surface((hl_rect.width, hl_rect.height), pygame.SRCALPHA)
     hl_surf.fill((*highlight_color, 130))
@@ -753,6 +779,7 @@ def main():
     player, platforms = reset_game("normal")
     frame_count = 0
     speed_multiplier = 1.0
+    starting_speed_multiplier = 1.0
     bg_x = 0
     bg_alpha_time = 0.0
     BG_SCROLL_SPEED = 0.5  # pixels per frame (slow scroll)
@@ -831,17 +858,21 @@ def main():
                     if state in ["START", "GAME_OVER"]:
                         selected_menu_index = (selected_menu_index + 1) % 2
                     elif state in ["PLAYING", "PAUSED"]:
-                        up_key_escape_count = 0
-                elif event.key == pygame.K_UP:
-                    if state in ["START", "GAME_OVER"]:
-                        selected_menu_index = (selected_menu_index - 1) % 2
-                    if state in ["PLAYING", "PAUSED"]:
-                        up_key_escape_count += 1
-                        if up_key_escape_count >= 5:
+                        if up_key_escape_count == 5:
                             up_key_escape_count = 0
                             state = "START"
                             speed_multiplier = 1.0
                             selected_menu_index = 0
+                        else:
+                            up_key_escape_count = 0
+                elif event.key == pygame.K_UP:
+                    if state in ["START", "GAME_OVER"]:
+                        selected_menu_index = (selected_menu_index - 1) % 2
+                    if state in ["PLAYING", "PAUSED"]:
+                        if up_key_escape_count < 5:
+                            up_key_escape_count += 1
+                        else:
+                            up_key_escape_count = 1
                 elif event.key == pygame.K_LEFT:
                     if state in ["PLAYING", "PAUSED"]:
                         up_key_escape_count = 0
@@ -869,8 +900,9 @@ def main():
                         if state == "GAME_OVER":
                             score_style_alt = True
                 elif event.key == pygame.K_RETURN or event.key == pygame.K_KP_ENTER:
-                    if state in ["START", "GAME_OVER"]:
+                    if state == "START":
                         state = "PLAYING"
+                        starting_speed_multiplier = speed_multiplier
                         game_mode = "normal" if selected_menu_index == 0 else "fly"
                         player, platforms = reset_game(game_mode)
                         score_style_alt = False
@@ -878,6 +910,21 @@ def main():
                         total_stairs_stepped = 0
                         btn_start.y = HEIGHT // 2 - 30
                         btn_fly.y = HEIGHT // 2 + 50
+                    elif state == "GAME_OVER":
+                        if selected_menu_index == 0:
+                            state = "PLAYING"
+                            starting_speed_multiplier = speed_multiplier
+                            game_mode = "normal"
+                            player, platforms = reset_game("normal")
+                            score_style_alt = False
+                            game_start_time = pygame.time.get_ticks()
+                            total_stairs_stepped = 0
+                            btn_start.y = HEIGHT // 2 - 30
+                            btn_fly.y = HEIGHT // 2 + 50
+                        else:
+                            state = "START"
+                            speed_multiplier = 1.0
+                            selected_menu_index = 0
 
         keys = pygame.key.get_pressed()
         ctrl_pressed = keys[pygame.K_LCTRL] or keys[pygame.K_RCTRL]
@@ -908,6 +955,7 @@ def main():
                            border_radius=15, pressed=pressed)
             if mouse_clicked and btn_start.collidepoint(mouse_pos):
                 state = "PLAYING"
+                starting_speed_multiplier = speed_multiplier
                 game_mode = "normal"
                 player, platforms = reset_game("normal")
                 game_start_time = pygame.time.get_ticks()
@@ -921,6 +969,7 @@ def main():
                            border_radius=15, pressed=fly_pressed)
             if mouse_clicked and btn_fly.collidepoint(mouse_pos):
                 state = "PLAYING"
+                starting_speed_multiplier = speed_multiplier
                 game_mode = "fly"
                 player, platforms = reset_game("fly")
                 game_start_time = pygame.time.get_ticks()
@@ -1091,8 +1140,11 @@ def main():
                             if can_start_boost:
                                 player.up_boosting = True
                                 if game_mode == "normal":
-                                    if player.invert_timer <= 0:
-                                        player.modify_health(-2)
+                                    if player.health <= 5:
+                                        sfx_fly.play()
+                                    else:
+                                        if player.invert_timer <= 0:
+                                            player.modify_health(-2)
                                     player.up_used_this_fall = True
                                 elif game_mode == "fly":
                                     player.score += 3
@@ -1152,6 +1204,7 @@ def main():
                     if player.score == 0:
                         game_rating = "放鬆一下,再試一次"
                     state = "GAME_OVER"
+                    selected_menu_index = 0
                     sfx_gameover.play()
 
                 # Update spike flash timer (only top spikes flash, duration 0.2s)
@@ -1299,17 +1352,20 @@ def main():
                 score_body = ((139, 0, 0), (255, 128, 128))
                 score_out1 = WHITE
                 score_out2 = (139, 0, 0)
-            draw_outlined_text(f"獲得分數: {player.score}", font_large_bold, score_body, screen, WIDTH // 2, HEIGHT // 2, SCORE_L1_OFFSETS, SCORE_L2_OFFSETS, outline_color1=score_out1, outline_color2=score_out2)
+            display_score = 0 if speed_multiplier != starting_speed_multiplier else player.score
+            draw_outlined_text(f"獲得分數: {display_score}", font_large_bold, score_body, screen, WIDTH // 2, HEIGHT // 2, SCORE_L1_OFFSETS, SCORE_L2_OFFSETS, outline_color1=score_out1, outline_color2=score_out2)
             draw_outlined_text(f"獲得評等: {game_rating}", font_half_large_bold, score_body, screen, WIDTH // 2, HEIGHT // 2 + 45, HALF_SCORE_L1_OFFSETS, HALF_SCORE_L2_OFFSETS, outline_color1=score_out1, outline_color2=score_out2)
 
             pressed = btn_start.collidepoint(mouse_pos) and mouse_clicked
-            color = KIDS_ORANGE
+            is_hover_start = btn_start.collidepoint(mouse_pos) or selected_menu_index == 0
+            color = ((0, 0, 139), (128, 0, 128)) if is_hover_start else ((0, 0, 255), (200, 0, 200))
             current_font = font_medium_bold if selected_menu_index == 0 else font_medium
-            draw_3d_button(screen, btn_start, color, "重新開始", current_font, WHITE,
+            draw_3d_button(screen, btn_start, color, "繼續挑戰", current_font, WHITE,
                            border_radius=15, pressed=pressed)
             
             if mouse_clicked and btn_start.collidepoint(mouse_pos):
                 state = "PLAYING"
+                starting_speed_multiplier = speed_multiplier
                 game_mode = "normal"
                 player, platforms = reset_game("normal")
                 score_style_alt = False
@@ -1320,20 +1376,16 @@ def main():
                 mouse_clicked = False  # consume click
                 
             fly_pressed = btn_fly.collidepoint(mouse_pos) and mouse_clicked
-            fly_color = KIDS_PINK
+            is_hover_fly = btn_fly.collidepoint(mouse_pos) or selected_menu_index == 1
+            fly_color = ((0, 0, 139), (128, 0, 128)) if is_hover_fly else ((0, 0, 255), (200, 0, 200))
             current_font_fly = font_medium_bold if selected_menu_index == 1 else font_medium
-            draw_3d_button(screen, btn_fly, fly_color, "飛高高吧", current_font_fly, WHITE,
+            draw_3d_button(screen, btn_fly, fly_color, "回到首頁", current_font_fly, WHITE,
                            border_radius=15, pressed=fly_pressed)
             
             if mouse_clicked and btn_fly.collidepoint(mouse_pos):
-                state = "PLAYING"
-                game_mode = "fly"
-                player, platforms = reset_game("fly")
-                score_style_alt = False
-                game_start_time = pygame.time.get_ticks()
-                total_stairs_stepped = 0
-                btn_start.y = HEIGHT // 2 - 30
-                btn_fly.y = HEIGHT // 2 + 50
+                state = "START"
+                speed_multiplier = 1.0
+                selected_menu_index = 0
                 mouse_clicked = False  # consume click
  
         # ---- Top Bar UI (Always visible) ----

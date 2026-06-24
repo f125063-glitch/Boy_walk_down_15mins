@@ -476,12 +476,24 @@ function drawScoreTxt(text,font,cx,cy,l1w,l2w,oA=1,fly=false,bA=1,blackMode=fals
 function drawBtn(x,y,w,h,rgb,text,font,tc='#000',r=8,pressed=false){
   ctx.save();
   const sh=pressed?0:4;
+  const isGrad = Array.isArray(rgb[0]);
+  const cTop = isGrad ? rgb[0] : rgb;
+  const cBot = isGrad ? rgb[rgb.length-1] : rgb;
+
   rrect(x+sh,y+sh,w,h,r);
-  ctx.fillStyle=`rgb(${Math.max(0,rgb[0]-60)},${Math.max(0,rgb[1]-60)},${Math.max(0,rgb[2]-60)})`; ctx.fill();
+  ctx.fillStyle=`rgb(${Math.max(0,cBot[0]-60)},${Math.max(0,cBot[1]-60)},${Math.max(0,cBot[2]-60)})`; ctx.fill();
   const fx=pressed?x+2:x, fy=pressed?y+2:y;
-  rrect(fx,fy,w,h,r); ctx.fillStyle=`rgb(${rgb[0]},${rgb[1]},${rgb[2]})`; ctx.fill();
+  rrect(fx,fy,w,h,r);
+  if (isGrad) {
+    const gr = ctx.createLinearGradient(fx, fy, fx, fy + h);
+    rgb.forEach((c, i) => gr.addColorStop(i / (rgb.length - 1), `rgb(${c[0]},${c[1]},${c[2]})`));
+    ctx.fillStyle = gr;
+  } else {
+    ctx.fillStyle=`rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+  }
+  ctx.fill();
   rrect(fx+3,fy+3,w-6,Math.max(1,Math.floor(h/3)),r);
-  ctx.fillStyle=`rgba(${Math.min(255,rgb[0]+60)},${Math.min(255,rgb[1]+60)},${Math.min(255,rgb[2]+60)},0.5)`; ctx.fill();
+  ctx.fillStyle=`rgba(${Math.min(255,cTop[0]+60)},${Math.min(255,cTop[1]+60)},${Math.min(255,cTop[2]+60)},0.5)`; ctx.fill();
   rrect(fx,fy,w,h,r); ctx.strokeStyle='#000'; ctx.lineWidth=2; ctx.stroke();
   ctx.font=font; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle=tc; ctx.fillText(text,fx+w/2,fy+h/2);
   ctx.restore();
@@ -735,7 +747,7 @@ class Platform{
 
 /* ═══════════════════════ GAME STATE ═══════════════════════ */
 let state='START', player, platforms=[];
-let frameCount=0, speedMult=1, spikeFlash=0, gameMode='normal', scoreStyleAlt=false;
+let frameCount=0, speedMult=1, startingSpeedMult=1, spikeFlash=0, gameMode='normal', scoreStyleAlt=false;
 let selIdx=0, escCnt=0;
 let btnSY=GH/2-30, btnFY=GH/2+50; // Y-pos for start / fly buttons (shift in GAME_OVER)
 let gameStartTime=0, totalStairs=0, gameRating=1;
@@ -762,6 +774,7 @@ function resetGame(mode){
 function startGame(mode){
   initSounds(); if(AC?.state==='suspended')AC.resume();
   resetGame(mode); state='PLAYING'; btnSY=GH/2-30; btnFY=GH/2+50; escCnt=0; frameCount=0; scoreStyleAlt=false;
+  startingSpeedMult = speedMult;
   gameStartTime=Date.now(); totalStairs=0;
 }
 
@@ -821,7 +834,14 @@ function handleClick(mx,my){
   if(isTimeRestricted)return;
   if(state==='START'||state==='GAME_OVER'){
     if(inXYWH(mx,my,GW/2-80,btnSY,160,60)){startGame('normal');return;}
-    if(inXYWH(mx,my,GW/2-80,btnFY,160,60)){startGame('fly');return;}
+    if(inXYWH(mx,my,GW/2-80,btnFY,160,60)){
+      if(state==='GAME_OVER') {
+        state='START';speedMult=1;selIdx=0;btnSY=GH/2-30;btnFY=GH/2+50;
+      } else {
+        startGame('fly');
+      }
+      return;
+    }
     if(inR(mx,my,BSWITCH)){layoutMode=(layoutMode+1)%8;resize();return;}
     if(inR(mx,my,BGESTURE)){useGesture=!useGesture;resize();return;}
   }
@@ -863,13 +883,26 @@ window.addEventListener('keydown',e=>{
   if(['START','GAME_OVER'].includes(state)){
     if(e.key==='ArrowUp')   selIdx=(selIdx-1+2)%2;
     if(e.key==='ArrowDown') selIdx=(selIdx+1)%2;
-    if(e.key==='Enter'||e.key==='NumpadEnter')startGame(selIdx===0?'normal':'fly');
+    if(e.key==='Enter'||e.key==='NumpadEnter'){
+      if(state==='GAME_OVER' && selIdx===1) {
+        state='START';speedMult=1;selIdx=0;btnSY=GH/2-30;btnFY=GH/2+50;
+      } else {
+        startGame(selIdx===0?'normal':'fly');
+      }
+    }
     if(e.key==='ArrowLeft') {const sp=[.5,1,1.5,2];let i=sp.indexOf(speedMult);if(i<0)i=1;speedMult=sp[Math.max(0,i-1)];}
     if(e.key==='ArrowRight'){const sp=[.5,1,1.5,2];let i=sp.indexOf(speedMult);if(i<0)i=1;speedMult=sp[Math.min(3,i+1)];}
   }
   if(['PLAYING','PAUSED'].includes(state)){
-    if(e.key==='ArrowUp'||e.key==='w'){escCnt++;if(escCnt>=5){escCnt=0;state='START';speedMult=1;btnSY=GH/2-30;btnFY=GH/2+50;}}
-    if(e.key==='ArrowDown'||e.key==='s'||e.key==='ArrowLeft'||e.key==='a'||e.key==='ArrowRight'||e.key==='d')escCnt=0;
+    if(e.key==='ArrowUp'||e.key==='w'){
+      if(escCnt<5) escCnt++;
+      else escCnt=1;
+    }
+    if(e.key==='ArrowDown'||e.key==='s'){
+      if(escCnt===5){escCnt=0;state='START';speedMult=1;btnSY=GH/2-30;btnFY=GH/2+50;}
+      else escCnt=0;
+    }
+    if(e.key==='ArrowLeft'||e.key==='a'||e.key==='ArrowRight'||e.key==='d')escCnt=0;
     if(e.key==='Control')state=state==='PAUSED'?'PLAYING':'PAUSED';
   }
   if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' '].includes(e.key))e.preventDefault();
@@ -1029,20 +1062,19 @@ function updateGame(){
   if(keys.up){
     if(!player.curPlat){
       if(!player.upWas){
-        // 第一次離梯下落：允許空中跳躍一次（扣血2格＋音效，與一般空跳相同）
+        // 第一次離梯下落：允許空中跳躍一次
         const firstFallFree = !player.firstFallJumped && player.upUsed && gameMode==='normal';
         const canBoost = gameMode==='fly' || !player.upUsed || firstFallFree;
         if(canBoost){
           player.upBoosting=true;
           if(gameMode==='normal'){
-            if(firstFallFree){
-              player.firstFallJumped=true; // 標記已使用本局首跳機會
-              if(player.invertTimer<=0)player.hurt(-2); // 扣血2格＋觸發扣血音效
-              player.upUsed=true;
+            if(firstFallFree) player.firstFallJumped=true; // 標記已使用本局首跳機會
+            if(player.hp <= 5){
+              playBuf(SFX.boost);
             } else {
-              if(player.invertTimer<=0)player.hurt(-2);
-              player.upUsed=true;
+              if(player.invertTimer<=0)player.hurt(-2); // 扣血2格＋觸發扣血音效
             }
+            player.upUsed=true;
           } else {
             player.score+=3;player.flyUpCnt++;if(player.flyUpCnt>=3){player.hurt(1);player.flyUpCnt=0;}playBuf(SFX.boost);
           }
@@ -1074,7 +1106,7 @@ function updateGame(){
     
     if(player.score === 0) gameRating = 1;
 
-    state='GAME_OVER';btnSY=GH/2+140;btnFY=GH/2+215;playBuf(SFX.gameover);
+    state='GAME_OVER';selIdx=0;btnSY=GH/2+140;btnFY=GH/2+215;playBuf(SFX.gameover);
   }
 
   if(spikeFlash>0){spikeFlash+=1/60;if(spikeFlash>=.2)spikeFlash=0;}
@@ -1225,7 +1257,8 @@ function drawFrame(){
       scoreOut1 = '#fff';
       scoreOut2 = '#8B0000';
     }
-    drawOutlined(`獲得分數: ${player.score}`,F_LG,scoreBody,GW/2,GH/2,8,14,scoreOut1,scoreOut2,1);
+    let displayScore = speedMult !== startingSpeedMult ? 0 : player.score;
+    drawOutlined(`獲得分數: ${displayScore}`,F_LG,scoreBody,GW/2,GH/2,8,14,scoreOut1,scoreOut2,1);
     if (player.score === 0) {
       drawOutlined(`放鬆一下, 加油!`,F_HALF_LG,scoreBody,GW/2,GH/2+60,4,7,scoreOut1,scoreOut2,1);
     } else {
@@ -1233,8 +1266,10 @@ function drawFrame(){
     }
 
     if(mInR([GW/2-80,btnSY,160,60]))selIdx=0; if(mInR([GW/2-80,btnFY,160,60]))selIdx=1;
-    drawBtn(GW/2-80,btnSY,160,60,[255,120,0],'重新開始',selIdx===0?F_MED_B:F_MED,'#fff',15);
-    drawBtn(GW/2-80,btnFY,160,60,[255,105,180],'飛高高吧',selIdx===1?F_MED_B:F_MED,'#fff',15);
+    let colorSY = selIdx === 0 ? [[0,0,139],[128,0,128]] : [[0,0,255],[200,0,200]];
+    let colorFY = selIdx === 1 ? [[0,0,139],[128,0,128]] : [[0,0,255],[200,0,200]];
+    drawBtn(GW/2-80,btnSY,160,60,colorSY,'繼續挑戰',selIdx===0?F_MED_B:F_MED,'#fff',15);
+    drawBtn(GW/2-80,btnFY,160,60,colorFY,'回到首頁',selIdx===1?F_MED_B:F_MED,'#fff',15);
     drawTopBarUI();
   }
 }
