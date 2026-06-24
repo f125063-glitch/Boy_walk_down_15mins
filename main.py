@@ -642,7 +642,7 @@ def draw_text(text, font, color, surface, x, y):
     textrect.center = (x, y)
     surface.blit(textobj, textrect)
 
-def draw_outlined_text(text, font, body_color, surface, center_x, center_y, l1_offsets, l2_offsets, outline_color1=WHITE, outline_color2=BLACK, body_alpha=255, outline_alpha=255, l3_offsets=None, outline_color3=BLACK):
+def draw_outlined_text(text, font, body_color, surface, center_x, center_y, l1_offsets, l2_offsets, outline_color1=WHITE, outline_color2=BLACK, body_alpha=255, outline_alpha=255, l3_offsets=None, outline_color3=BLACK, align="center"):
     c1_surf = font.render(text, True, outline_color1)
     c2_surf = font.render(text, True, outline_color2)
     if l3_offsets:
@@ -676,7 +676,12 @@ def draw_outlined_text(text, font, body_color, surface, center_x, center_y, l1_o
     if body_alpha < 255:
         body_surf.set_alpha(body_alpha)
 
-    text_rect = body_surf.get_rect(center=(center_x, center_y))
+    if align == "center":
+        text_rect = body_surf.get_rect(center=(center_x, center_y))
+    elif align == "right":
+        text_rect = body_surf.get_rect(midright=(center_x, center_y))
+    elif align == "left":
+        text_rect = body_surf.get_rect(midleft=(center_x, center_y))
 
     # Apply outline_alpha to outline layers
     if outline_alpha < 255:
@@ -812,7 +817,11 @@ def main():
         elif player.score >= 201: auto_speed_mult = 1.2
         elif player.score >= 101: auto_speed_mult = 1.1
 
-        current_speed = 1.0 if player.speed_timer > 0 else (speed_multiplier * auto_speed_mult)
+        base_speed = speed_multiplier * auto_speed_mult
+        if player.speed_timer > 0:
+            current_speed = 0.5 if base_speed < 1.0 else 1.0
+        else:
+            current_speed = base_speed
         clock.tick(int(FPS * current_speed))
         if player.invert_timer > 0:
             screen.fill(BLACK)
@@ -914,8 +923,7 @@ def main():
                         if selected_menu_index == 0:
                             state = "PLAYING"
                             starting_speed_multiplier = speed_multiplier
-                            game_mode = "normal"
-                            player, platforms = reset_game("normal")
+                            player, platforms = reset_game(game_mode)
                             score_style_alt = False
                             game_start_time = pygame.time.get_ticks()
                             total_stairs_stepped = 0
@@ -1140,11 +1148,12 @@ def main():
                             if can_start_boost:
                                 player.up_boosting = True
                                 if game_mode == "normal":
-                                    if player.health <= 5:
+                                    if player.invert_timer > 0:
+                                        sfx_fly.play()
+                                    elif player.health <= 5:
                                         sfx_fly.play()
                                     else:
-                                        if player.invert_timer <= 0:
-                                            player.modify_health(-2)
+                                        player.modify_health(-2)
                                     player.up_used_this_fall = True
                                 elif game_mode == "fly":
                                     player.score += 3
@@ -1340,11 +1349,7 @@ def main():
 
             draw_top_spikes(screen, 0)
             draw_outlined_text("遊戲結束", font_large_bold, ((0, 0, 139), (221, 160, 221)), screen, WIDTH // 2, HEIGHT // 3, NORMAL_OUTLINE_OFFSETS, RAINBOW_OUTLINE_OFFSETS, outline_color2=(128, 0, 128))
-            if score_style_alt:
-                score_body = ((0, 0, 0), (128, 128, 128))
-                score_out1 = WHITE
-                score_out2 = BLACK
-            elif game_mode == 'fly':
+            if game_mode == 'fly':
                 score_body = ((0, 100, 0), (144, 238, 144))
                 score_out1 = WHITE
                 score_out2 = (0, 100, 0)
@@ -1355,12 +1360,14 @@ def main():
             speed_changed = speed_multiplier != starting_speed_multiplier
             display_score = "---" if speed_changed else player.score
             display_rating = "---" if speed_changed else game_rating
-            draw_outlined_text(f"獲得分數: {display_score}", font_large_bold, score_body, screen, WIDTH // 2, HEIGHT // 2, SCORE_L1_OFFSETS, SCORE_L2_OFFSETS, outline_color1=score_out1, outline_color2=score_out2)
-            draw_outlined_text(f"獲得評等: {display_rating}", font_half_large_bold, score_body, screen, WIDTH // 2, HEIGHT // 2 + 45, HALF_SCORE_L1_OFFSETS, HALF_SCORE_L2_OFFSETS, outline_color1=score_out1, outline_color2=score_out2)
+            draw_outlined_text("獲得分數: ", font_large_bold, score_body, screen, WIDTH // 2 + 90, HEIGHT // 2, SCORE_L1_OFFSETS, SCORE_L2_OFFSETS, outline_color1=score_out1, outline_color2=score_out2, align="right")
+            draw_outlined_text(f"{display_score}", font_large_bold, score_body, screen, WIDTH // 2 + 90, HEIGHT // 2, SCORE_L1_OFFSETS, SCORE_L2_OFFSETS, outline_color1=score_out1, outline_color2=score_out2, align="left")
+            draw_outlined_text("獲得評等: ", font_half_large_bold, score_body, screen, WIDTH // 2 + 20, HEIGHT // 2 + 45, HALF_SCORE_L1_OFFSETS, HALF_SCORE_L2_OFFSETS, outline_color1=score_out1, outline_color2=score_out2, align="right")
+            draw_outlined_text(f"{display_rating}", font_half_large_bold, score_body, screen, WIDTH // 2 + 20, HEIGHT // 2 + 45, HALF_SCORE_L1_OFFSETS, HALF_SCORE_L2_OFFSETS, outline_color1=score_out1, outline_color2=score_out2, align="left")
 
             pressed = btn_start.collidepoint(mouse_pos) and mouse_clicked
             is_hover_start = btn_start.collidepoint(mouse_pos) or selected_menu_index == 0
-            color = ((0, 0, 139), (128, 0, 128)) if is_hover_start else ((0, 0, 255), (200, 0, 200))
+            color = ((0, 0, 255), (128, 0, 255)) if is_hover_start else ((0, 0, 139), (128, 0, 128))
             current_font = font_medium_bold if selected_menu_index == 0 else font_medium
             draw_3d_button(screen, btn_start, color, "繼續挑戰", current_font, WHITE,
                            border_radius=15, pressed=pressed)
@@ -1368,8 +1375,7 @@ def main():
             if mouse_clicked and btn_start.collidepoint(mouse_pos):
                 state = "PLAYING"
                 starting_speed_multiplier = speed_multiplier
-                game_mode = "normal"
-                player, platforms = reset_game("normal")
+                player, platforms = reset_game(game_mode)
                 score_style_alt = False
                 game_start_time = pygame.time.get_ticks()
                 total_stairs_stepped = 0
@@ -1379,7 +1385,7 @@ def main():
                 
             fly_pressed = btn_fly.collidepoint(mouse_pos) and mouse_clicked
             is_hover_fly = btn_fly.collidepoint(mouse_pos) or selected_menu_index == 1
-            fly_color = ((0, 0, 139), (128, 0, 128)) if is_hover_fly else ((0, 0, 255), (200, 0, 200))
+            fly_color = ((0, 0, 255), (128, 0, 255)) if is_hover_fly else ((0, 0, 139), (128, 0, 128))
             current_font_fly = font_medium_bold if selected_menu_index == 1 else font_medium
             draw_3d_button(screen, btn_fly, fly_color, "回到首頁", current_font_fly, WHITE,
                            border_radius=15, pressed=fly_pressed)

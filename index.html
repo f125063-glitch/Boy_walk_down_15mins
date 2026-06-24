@@ -315,9 +315,9 @@ function rrect(x,y,w,h,r){
 }
 
 /* Piano lacquer outlined text (double strokeText → fill) */
-function drawOutlined(text,font,body,cx,cy,l1w,l2w,c1='#fff',c2='#000',alpha=1,l3w=0,c3='#000'){
+function drawOutlined(text,font,body,cx,cy,l1w,l2w,c1='#fff',c2='#000',alpha=1,l3w=0,c3='#000',align='center'){
   ctx.save();
-  ctx.globalAlpha=alpha; ctx.font=font; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.lineJoin='round';
+  ctx.globalAlpha=alpha; ctx.font=font; ctx.textAlign=align; ctx.textBaseline='middle'; ctx.lineJoin='round';
   if (l3w > 0) { ctx.strokeStyle=c3; ctx.lineWidth=l3w; ctx.strokeText(text,cx,cy); }
   ctx.strokeStyle=c2; ctx.lineWidth=l2w; ctx.strokeText(text,cx,cy);
   ctx.strokeStyle=c1; ctx.lineWidth=l1w; ctx.strokeText(text,cx,cy);
@@ -833,7 +833,7 @@ function mInR(b){return inR(mX,mY,b);}
 function handleClick(mx,my){
   if(isTimeRestricted)return;
   if(state==='START'||state==='GAME_OVER'){
-    if(inXYWH(mx,my,GW/2-80,btnSY,160,60)){startGame('normal');return;}
+    if(inXYWH(mx,my,GW/2-80,btnSY,160,60)){startGame(state==='GAME_OVER'?gameMode:'normal');return;}
     if(inXYWH(mx,my,GW/2-80,btnFY,160,60)){
       if(state==='GAME_OVER') {
         state='START';speedMult=1;selIdx=0;btnSY=GH/2-30;btnFY=GH/2+50;
@@ -884,8 +884,12 @@ window.addEventListener('keydown',e=>{
     if(e.key==='ArrowUp')   selIdx=(selIdx-1+2)%2;
     if(e.key==='ArrowDown') selIdx=(selIdx+1)%2;
     if(e.key==='Enter'||e.key==='NumpadEnter'){
-      if(state==='GAME_OVER' && selIdx===1) {
-        state='START';speedMult=1;selIdx=0;btnSY=GH/2-30;btnFY=GH/2+50;
+      if(state==='GAME_OVER') {
+        if (selIdx===1) {
+          state='START';speedMult=1;selIdx=0;btnSY=GH/2-30;btnFY=GH/2+50;
+        } else {
+          startGame(gameMode);
+        }
       } else {
         startGame(selIdx===0?'normal':'fly');
       }
@@ -931,6 +935,12 @@ const touchPressedDirs = new Set();
   const on=ev=>{
     if(isTimeRestricted)return;
     ev.preventDefault();
+    if(['START','GAME_OVER'].includes(state)){
+      if(dir==='up') selIdx=(selIdx-1+2)%2;
+      if(dir==='down') selIdx=(selIdx+1)%2;
+      if(dir==='left') {const sp=[.5,1,1.5,2];let i=sp.indexOf(speedMult);if(i<0)i=1;speedMult=sp[Math.max(0,i-1)];}
+      if(dir==='right'){const sp=[.5,1,1.5,2];let i=sp.indexOf(speedMult);if(i<0)i=1;speedMult=sp[Math.min(3,i+1)];}
+    }
     // 若此方向尚未按下，且已有 2 個方向被按住，則不再新增
     if(!touchPressedDirs.has(dir) && touchPressedDirs.size >= 2) return;
     if(!keys[dir]){
@@ -1069,10 +1079,12 @@ function updateGame(){
           player.upBoosting=true;
           if(gameMode==='normal'){
             if(firstFallFree) player.firstFallJumped=true; // 標記已使用本局首跳機會
-            if(player.hp <= 5){
+            if(player.invertTimer > 0){
+              playBuf(SFX.boost);
+            } else if(player.hp <= 5){
               playBuf(SFX.boost);
             } else {
-              if(player.invertTimer<=0)player.hurt(-2); // 扣血2格＋觸發扣血音效
+              player.hurt(-2); // 扣血2格＋觸發扣血音效
             }
             player.upUsed=true;
           } else {
@@ -1244,11 +1256,7 @@ function drawFrame(){
     drawOutlined('遊戲結束',F_LG,[[0,0,139],[221,160,221]],GW/2,GH/3,4,9,'#fff','#800080',1);
     
     let scoreBody, scoreOut1, scoreOut2;
-    if (scoreStyleAlt) {
-      scoreBody = [[0,0,0],[128,128,128]];
-      scoreOut1 = '#fff';
-      scoreOut2 = '#000';
-    } else if (gameMode === 'fly') {
+    if (gameMode === 'fly') {
       scoreBody = [[0,100,0], [144,238,144]];
       scoreOut1 = '#fff';
       scoreOut2 = '#006400';
@@ -1258,7 +1266,8 @@ function drawFrame(){
       scoreOut2 = '#8B0000';
     }
     const speedChanged = speedMult !== startingSpeedMult;
-    drawOutlined(`獲得分數: ${speedChanged ? '---' : player.score}`,F_LG,scoreBody,GW/2,GH/2,8,14,scoreOut1,scoreOut2,1);
+    drawOutlined(`獲得分數: `,F_LG,scoreBody,GW/2+90,GH/2,8,14,scoreOut1,scoreOut2,1,0,'#000','right');
+    drawOutlined(`${speedChanged ? '---' : player.score}`,F_LG,scoreBody,GW/2+90,GH/2,8,14,scoreOut1,scoreOut2,1,0,'#000','left');
     if (!speedChanged && player.score === 0) {
       drawOutlined(`放鬆一下, 加油!`,F_HALF_LG,scoreBody,GW/2,GH/2+60,4,7,scoreOut1,scoreOut2,1);
     } else {
@@ -1266,8 +1275,8 @@ function drawFrame(){
     }
 
     if(mInR([GW/2-80,btnSY,160,60]))selIdx=0; if(mInR([GW/2-80,btnFY,160,60]))selIdx=1;
-    let colorSY = selIdx === 0 ? [[0,0,139],[128,0,128]] : [[0,0,255],[200,0,200]];
-    let colorFY = selIdx === 1 ? [[0,0,139],[128,0,128]] : [[0,0,255],[200,0,200]];
+    let colorSY = selIdx === 0 ? [[0,0,255],[128,0,255]] : [[0,0,139],[128,0,128]];
+    let colorFY = selIdx === 1 ? [[0,0,255],[128,0,255]] : [[0,0,139],[128,0,128]];
     drawBtn(GW/2-80,btnSY,160,60,colorSY,'繼續挑戰',selIdx===0?F_MED_B:F_MED,'#fff',15);
     drawBtn(GW/2-80,btnFY,160,60,colorFY,'回到首頁',selIdx===1?F_MED_B:F_MED,'#fff',15);
     drawTopBarUI();
@@ -1302,7 +1311,11 @@ function loop(ts){
     else if (player.score >= 201) autoSpeedMult = 1.2;
     else if (player.score >= 101) autoSpeedMult = 1.1;
 
-    let currentSpeed = (player.speedTimer > 0) ? 1.0 : (speedMult * autoSpeedMult);
+    let baseSpeed = speedMult * autoSpeedMult;
+    let currentSpeed = baseSpeed;
+    if (player.speedTimer > 0) {
+      currentSpeed = baseSpeed < 1.0 ? 0.5 : 1.0;
+    }
     acc+=dt*currentSpeed;
     let steps=0;
     while(acc>=STEP&&steps<4){updateGame();acc-=STEP;steps++;}
