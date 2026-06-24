@@ -1352,9 +1352,11 @@ def main():
                 score_body = ((139, 0, 0), (255, 128, 128))
                 score_out1 = WHITE
                 score_out2 = (139, 0, 0)
-            display_score = 0 if speed_multiplier != starting_speed_multiplier else player.score
+            speed_changed = speed_multiplier != starting_speed_multiplier
+            display_score = "---" if speed_changed else player.score
+            display_rating = "---" if speed_changed else game_rating
             draw_outlined_text(f"獲得分數: {display_score}", font_large_bold, score_body, screen, WIDTH // 2, HEIGHT // 2, SCORE_L1_OFFSETS, SCORE_L2_OFFSETS, outline_color1=score_out1, outline_color2=score_out2)
-            draw_outlined_text(f"獲得評等: {game_rating}", font_half_large_bold, score_body, screen, WIDTH // 2, HEIGHT // 2 + 45, HALF_SCORE_L1_OFFSETS, HALF_SCORE_L2_OFFSETS, outline_color1=score_out1, outline_color2=score_out2)
+            draw_outlined_text(f"獲得評等: {display_rating}", font_half_large_bold, score_body, screen, WIDTH // 2, HEIGHT // 2 + 45, HALF_SCORE_L1_OFFSETS, HALF_SCORE_L2_OFFSETS, outline_color1=score_out1, outline_color2=score_out2)
 
             pressed = btn_start.collidepoint(mouse_pos) and mouse_clicked
             is_hover_start = btn_start.collidepoint(mouse_pos) or selected_menu_index == 0

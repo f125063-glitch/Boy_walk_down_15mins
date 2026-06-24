@@ -1257,12 +1257,12 @@ function drawFrame(){
       scoreOut1 = '#fff';
       scoreOut2 = '#8B0000';
     }
-    let displayScore = speedMult !== startingSpeedMult ? 0 : player.score;
-    drawOutlined(`獲得分數: ${displayScore}`,F_LG,scoreBody,GW/2,GH/2,8,14,scoreOut1,scoreOut2,1);
-    if (player.score === 0) {
+    const speedChanged = speedMult !== startingSpeedMult;
+    drawOutlined(`獲得分數: ${speedChanged ? '---' : player.score}`,F_LG,scoreBody,GW/2,GH/2,8,14,scoreOut1,scoreOut2,1);
+    if (!speedChanged && player.score === 0) {
       drawOutlined(`放鬆一下, 加油!`,F_HALF_LG,scoreBody,GW/2,GH/2+60,4,7,scoreOut1,scoreOut2,1);
     } else {
-      drawStarRating(GW/2, GH/2+60, gameRating, 1);
+      drawStarRating(GW/2, GH/2+60, speedChanged ? 0 : gameRating, 1);
     }
 
     if(mInR([GW/2-80,btnSY,160,60]))selIdx=0; if(mInR([GW/2-80,btnFY,160,60]))selIdx=1;
